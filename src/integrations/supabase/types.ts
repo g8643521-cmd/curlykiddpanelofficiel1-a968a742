@@ -260,28 +260,43 @@ export type Database = {
         Row: {
           created_at: string
           evidence: string | null
+          evidence_url: string | null
           id: string
+          player_identifiers: Json | null
+          player_name: string | null
           reason: string | null
           reported_user: string | null
           reporter_id: string | null
+          server_code: string | null
+          server_name: string | null
           status: string | null
         }
         Insert: {
           created_at?: string
           evidence?: string | null
+          evidence_url?: string | null
           id?: string
+          player_identifiers?: Json | null
+          player_name?: string | null
           reason?: string | null
           reported_user?: string | null
           reporter_id?: string | null
+          server_code?: string | null
+          server_name?: string | null
           status?: string | null
         }
         Update: {
           created_at?: string
           evidence?: string | null
+          evidence_url?: string | null
           id?: string
+          player_identifiers?: Json | null
+          player_name?: string | null
           reason?: string | null
           reported_user?: string | null
           reporter_id?: string | null
+          server_code?: string | null
+          server_name?: string | null
           status?: string | null
         }
         Relationships: []
@@ -877,6 +892,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          server_code: string | null
           server_id: string
           server_name: string | null
           user_id: string
@@ -884,6 +900,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          server_code?: string | null
           server_id: string
           server_name?: string | null
           user_id: string
@@ -891,6 +908,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          server_code?: string | null
           server_id?: string
           server_name?: string | null
           user_id?: string
