@@ -83,10 +83,16 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return;
+      const emailName = session.user.email
+        ? session.user.email.split('@')[0]
+        : null;
       const metaName =
         session.user.user_metadata?.display_name ||
         session.user.user_metadata?.full_name ||
         session.user.user_metadata?.name ||
+        session.user.user_metadata?.preferred_username ||
+        session.user.user_metadata?.user_name ||
+        emailName ||
         null;
       const sessionFallback: Profile = {
         display_name: metaName || t('nav.user_fallback'),
@@ -113,7 +119,10 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
             const profileData: Profile = {
               ...sessionFallback,
               ...data,
-              display_name: data.display_name || sessionFallback.display_name,
+              display_name:
+                (data.display_name && data.display_name.trim() && data.display_name.trim().toLowerCase() !== 'user')
+                  ? data.display_name
+                  : sessionFallback.display_name,
               avatar_url: data.avatar_url || session.user.user_metadata?.avatar_url || null,
             };
             setProfile(profileData);
