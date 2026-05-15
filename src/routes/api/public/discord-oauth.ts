@@ -79,6 +79,33 @@ async function autoJoinGuild(discordUserId: string, accessToken: string) {
   }
 }
 
+async function readDiscordSetting(key: string) {
+  const { data } = await supabaseAdmin
+    .from("admin_settings")
+    .select("value")
+    .eq("key", key)
+    .maybeSingle();
+  return data?.value ? String(data.value) : "";
+}
+
+async function getBotToken() {
+  return process.env.DISCORD_BOT_TOKEN || await readDiscordSetting("discord_bot_token");
+}
+
+async function checkGuildMember(discordUserId: string) {
+  const guildId = await readDiscordSetting("discord_guild_id");
+  const botToken = await getBotToken();
+  if (!guildId || !botToken || !discordUserId) {
+    return { member: false, status: "not_configured" };
+  }
+  const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordUserId}`, {
+    headers: { Authorization: `Bot ${botToken}` },
+  });
+  if (res.status === 200) return { member: true, status: "member" };
+  if (res.status === 404) return { member: false, status: "not_member" };
+  return { member: false, status: `discord_${res.status}` };
+}
+
 async function handle(request: Request): Promise<Response> {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -215,7 +242,16 @@ async function handle(request: Request): Promise<Response> {
       })
       .eq("user_id", existingUserId);
 
-    await autoJoinGuild(discordUser.id, tokenData.access_token);
+    const joined = await autoJoinGuild(discordUser.id, tokenData.access_token);
+    const membership = joined ? { member: true, status: "joined" } : await checkGuildMember(discordUser.id);
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        discord_guild_member: membership.member,
+        discord_guild_status: membership.status,
+        discord_guild_checked_at: new Date().toISOString(),
+      })
+      .eq("user_id", existingUserId);
 
     const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
@@ -229,6 +265,9 @@ async function handle(request: Request): Promise<Response> {
     return json({
       success: true,
       action_link: linkData.properties.action_link,
+      joined_guild: joined,
+      guild_member: membership.member,
+      guild_status: membership.status,
       discord: { id: discordUser.id, username: discordUser.username, avatar: avatarUrl },
     });
   }
