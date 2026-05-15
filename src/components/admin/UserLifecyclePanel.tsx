@@ -33,6 +33,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { handleSupabaseError } from '@/lib/authRecovery';
+import { getSessionWithTimeout } from '@/lib/authSession';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -273,7 +274,7 @@ export default function UserLifecyclePanel() {
       // Confirm we have a valid auth session before querying — this prevents
       // the cryptic "Failed to load users" caused by a stale/bad JWT where
       // RLS silently returns nothing.
-      const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+      const { data: { session }, error: sessErr } = await getSessionWithTimeout();
       if (sessErr && handleSupabaseError(sessErr)) return;
       if (!session) {
         toast.error('You are not signed in. Please log in again.');
