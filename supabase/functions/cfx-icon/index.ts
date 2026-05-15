@@ -17,9 +17,11 @@ Deno.serve(async (req) => {
     const upstream = await fetch(url);
 
     if (!upstream.ok) {
-      return new Response(JSON.stringify({ error: "no_icon" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Return 200 with a 1x1 transparent PNG so callers don't treat as error
+      const empty = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="), c => c.charCodeAt(0));
+      return new Response(empty, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "image/png", "X-Icon-Status": "missing" },
       });
     }
 
