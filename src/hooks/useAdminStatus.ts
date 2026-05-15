@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getSessionWithTimeout } from '@/lib/authSession';
 
 type UserRole = 'admin' | 'moderator' | 'user' | 'owner' | 'mod_creator' | 'server_owner' | 'integrations_manager';
 
@@ -52,7 +53,7 @@ async function fetchRoles(force = false) {
 
   _fetchPromise = (async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSessionWithTimeout();
 
       if (!session) {
         _lastFetchedUserId = null;
@@ -123,7 +124,7 @@ function teardownRealtime() {
 }
 
 async function ensureRealtime() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await getSessionWithTimeout();
   if (!session) return;
   if (_realtimeUserId === session.user.id && _realtimeChannel) return;
 
