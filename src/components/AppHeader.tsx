@@ -91,8 +91,13 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
   };
 
   useEffect(() => {
+    setFetchState('loading');
+    setFetchError(null);
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return;
+      if (!session) {
+        setFetchState('no-session');
+        return;
+      }
       const emailName = session.user.email
         ? session.user.email.split('@')[0]
         : null;
@@ -138,9 +143,20 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
             };
             setProfile(profileData);
             setCachedProfile(profileData);
+            setFetchState('ok');
+            setAvatarStatus(profileData.avatar_url ? 'loading' : 'missing');
+            setBannerStatus(profileData.banner_url ? 'loading' : 'missing');
           } else if (error) {
             setProfile(sessionFallback);
             setCachedProfile(sessionFallback);
+            setFetchState('error');
+            setFetchError(error.message || 'unknown error');
+            setAvatarStatus(sessionFallback.avatar_url ? 'loading' : 'missing');
+            setBannerStatus('missing');
+          } else {
+            setFetchState('ok');
+            setAvatarStatus(sessionFallback.avatar_url ? 'loading' : 'missing');
+            setBannerStatus('missing');
           }
         });
     });
