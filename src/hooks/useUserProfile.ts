@@ -135,7 +135,7 @@ export const useUserProfile = () => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: `${publicUrl}?t=${Date.now()}` })
-        .eq('id', session.user.id);
+        .eq('user_id', session.user.id);
 
       if (updateError) {
         console.error('Update error:', updateError);
