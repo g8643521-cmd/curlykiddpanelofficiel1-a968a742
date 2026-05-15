@@ -177,6 +177,7 @@ export const useCfxApi = () => {
 
       let data: any;
       let fnError: any;
+      let lookupErrorBody: any;
       try {
         ({ data, error: fnError } = await invokeOnce());
       } catch (e) {
@@ -189,7 +190,8 @@ export const useCfxApi = () => {
       }
 
       if (fnError) {
-        throw new Error(fnError.message || "Failed to fetch server data");
+        lookupErrorBody = await fnError.context?.json?.().catch(() => null);
+        throw new Error(lookupErrorBody?.error || fnError.message || "Failed to fetch server data");
       }
 
       if (data.error) {
@@ -276,7 +278,7 @@ export const useCfxApi = () => {
       const stack = err instanceof Error && err.stack ? err.stack : "";
       // Normalize backend / network errors into a single user-facing message
       const looksOffline =
-        /not found|503|temporarily unavailable|SUPABASE_EDGE_RUNTIME_ERROR|Failed to fetch|NetworkError|timeout|502|504/i.test(raw);
+        /503|temporarily unavailable|SUPABASE_EDGE_RUNTIME_ERROR|Failed to fetch|NetworkError|timeout|502|504/i.test(raw);
       const message = looksOffline
         ? t("lookup.offline")
         : raw;
