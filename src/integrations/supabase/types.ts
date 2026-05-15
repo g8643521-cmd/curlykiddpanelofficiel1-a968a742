@@ -646,6 +646,9 @@ export type Database = {
           bio: string | null
           created_at: string
           discord_avatar: string | null
+          discord_guild_checked_at: string | null
+          discord_guild_member: boolean | null
+          discord_guild_status: string | null
           discord_user_id: string | null
           discord_username: string | null
           display_name: string | null
@@ -670,6 +673,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           discord_avatar?: string | null
+          discord_guild_checked_at?: string | null
+          discord_guild_member?: boolean | null
+          discord_guild_status?: string | null
           discord_user_id?: string | null
           discord_username?: string | null
           display_name?: string | null
@@ -694,6 +700,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           discord_avatar?: string | null
+          discord_guild_checked_at?: string | null
+          discord_guild_member?: boolean | null
+          discord_guild_status?: string | null
           discord_user_id?: string | null
           discord_username?: string | null
           display_name?: string | null

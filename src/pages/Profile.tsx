@@ -15,6 +15,8 @@ import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { usePresence } from '@/hooks/usePresence';
 import { toast } from 'sonner';
 import profileBanner from '@/assets/profile-banner.jpg';
+import { getProfileAvatarUrl } from '@/lib/avatar';
+import { syncCurrentUserProfile } from '@/lib/profileSync';
 
 const ROLE_DISPLAY: Record<string, { label: string; color: string }> = {
   owner: { label: 'OWNER', color: 'text-[hsl(var(--yellow))]' },
@@ -42,6 +44,9 @@ const Profile = () => {
     discord_user_id: string | null;
     discord_username: string | null;
     discord_avatar: string | null;
+    discord_guild_member: boolean | null;
+    discord_guild_status: string | null;
+    discord_guild_checked_at: string | null;
     email_confirmed_at: string | null;
     phone: string | null;
     updated_at: string | null;
@@ -105,16 +110,17 @@ const Profile = () => {
       }
 
       const user = session.user;
+      await syncCurrentUserProfile().catch(() => null);
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar')
+        .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
         .eq('user_id', user.id)
         .single();
 
       setUserInfo({
         email: user.email || '',
         display_name: (profile as any)?.display_name || user.user_metadata?.full_name || null,
-        avatar_url: (profile as any)?.avatar_url || user.user_metadata?.avatar_url || null,
+        avatar_url: getProfileAvatarUrl(profile as any) || user.user_metadata?.avatar_url || null,
         created_at: user.created_at,
         last_sign_in_at: user.last_sign_in_at || null,
         provider: user.app_metadata?.provider || 'email',
@@ -122,6 +128,9 @@ const Profile = () => {
         discord_user_id: (profile as any)?.discord_user_id || null,
         discord_username: (profile as any)?.discord_username || null,
         discord_avatar: (profile as any)?.discord_avatar || null,
+        discord_guild_member: (profile as any)?.discord_guild_member ?? null,
+        discord_guild_status: (profile as any)?.discord_guild_status || null,
+        discord_guild_checked_at: (profile as any)?.discord_guild_checked_at || null,
         email_confirmed_at: user.email_confirmed_at || null,
         phone: user.phone || null,
         updated_at: user.updated_at || null,
@@ -184,6 +193,10 @@ const Profile = () => {
           discord_user_id: discord.id,
           discord_username: discord.username,
           discord_avatar: discord.avatar,
+          avatar_url: discord.avatar || prev.avatar_url,
+          discord_guild_member: data.guild_member ?? data.joined_guild ?? prev.discord_guild_member,
+          discord_guild_status: data.guild_status || prev.discord_guild_status,
+          discord_guild_checked_at: new Date().toISOString(),
         } : prev);
         const joinMsg = data.joined_guild ? ' & joined Discord server!' : '';
         toast.success(`Discord linked: ${discord.username}${joinMsg}`);
@@ -265,11 +278,47 @@ const Profile = () => {
       const result = await res.json();
 
       if (result.success) {
-        setUserInfo(prev => prev ? { ...prev, discord_user_id: null, discord_username: null, discord_avatar: null } : prev);
+        setUserInfo(prev => prev ? {
+          ...prev,
+          discord_user_id: null,
+          discord_username: null,
+          discord_avatar: null,
+          discord_guild_member: null,
+          discord_guild_status: null,
+          discord_guild_checked_at: null,
+        } : prev);
         toast.success('Discord unlinked');
       }
     } catch {
       toast.error('Could not unlink Discord');
+    } finally {
+      setIsLinkingDiscord(false);
+    }
+  };
+
+  const refreshDiscordMembership = async () => {
+    setIsLinkingDiscord(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch('/api/public/discord-oauth?action=membership', {
+        method: 'POST',
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Could not check Discord membership');
+      setUserInfo(prev => prev ? {
+        ...prev,
+        discord_guild_member: data.member,
+        discord_guild_status: data.status,
+        discord_guild_checked_at: new Date().toISOString(),
+      } : prev);
+      toast.success(data.member ? 'Discord membership verified' : 'Discord membership not found');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not check Discord membership');
     } finally {
       setIsLinkingDiscord(false);
     }
@@ -710,7 +759,7 @@ const Profile = () => {
               </div>
               <div className="px-6 py-5">
                 {userInfo?.discord_user_id ? (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       {userInfo.discord_avatar ? (
                         <img src={userInfo.discord_avatar} alt="" className="w-10 h-10 rounded-full" />
@@ -722,9 +771,30 @@ const Profile = () => {
                       <div>
                         <p className="text-sm font-medium text-foreground">{userInfo.discord_username}</p>
                         <p className="text-xs text-muted-foreground">ID: {userInfo.discord_user_id}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Server status: {userInfo.discord_guild_member ? 'Member of CurlyKidd Discord' : 'Not connected to CurlyKidd Discord'}
+                          {userInfo.discord_guild_status ? ` · ${userInfo.discord_guild_status}` : ''}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {!userInfo.discord_guild_member && discordInviteUrl && (
+                        <Button asChild variant="outline" size="sm" className="gap-1.5">
+                          <a href={discordInviteUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink className="w-4 h-4" />
+                            Join
+                          </a>
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={refreshDiscordMembership}
+                        disabled={isLinkingDiscord}
+                      >
+                        {isLinkingDiscord ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Activity className="w-4 h-4 mr-1" />}
+                        Check
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
