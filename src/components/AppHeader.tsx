@@ -83,10 +83,16 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return;
+      const emailName = session.user.email
+        ? session.user.email.split('@')[0]
+        : null;
       const metaName =
         session.user.user_metadata?.display_name ||
         session.user.user_metadata?.full_name ||
         session.user.user_metadata?.name ||
+        session.user.user_metadata?.preferred_username ||
+        session.user.user_metadata?.user_name ||
+        emailName ||
         null;
       const sessionFallback: Profile = {
         display_name: metaName || t('nav.user_fallback'),
