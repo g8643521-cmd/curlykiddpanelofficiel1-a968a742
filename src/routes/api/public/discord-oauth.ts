@@ -36,6 +36,15 @@ function forceLoginRedirectUri(redirectUri: string): string {
   return `${parsed.origin}/login`;
 }
 
+function getDiscordCallbackRedirectUri(redirectUri: string): string {
+  const parsed = new URL(redirectUri);
+  const path = parsed.pathname.replace(/\/$/, "") || "/";
+  if (path === "/auth" || path === "/login" || path === "/") {
+    return `${parsed.origin}${path === "/" ? "/" : path}`;
+  }
+  return `${parsed.origin}/login`;
+}
+
 async function getUserFromAuthHeader(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (!authHeader) return null;
@@ -125,7 +134,7 @@ async function handle(request: Request): Promise<Response> {
     if (!code || !requested) return json({ error: "code and redirect_uri required" }, 400);
     let redirect_uri: string;
     try {
-      redirect_uri = forceLoginRedirectUri(requested);
+      redirect_uri = getDiscordCallbackRedirectUri(requested);
     } catch {
       return json({ error: "invalid redirect_uri" }, 400);
     }
