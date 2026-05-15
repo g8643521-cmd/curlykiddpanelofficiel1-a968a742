@@ -52,6 +52,7 @@ interface UserProfile {
   flagged_at: string | null;
   flagged_reason: string | null;
   discord_username: string | null;
+  discord_avatar: string | null;
 }
 
 interface UserFlag {
@@ -715,6 +716,8 @@ export default function UserLifecyclePanel() {
               const topStaffRole = pickHighestRole(userRoleList.filter((r) => STAFF_ROLE_KEYS.includes(r)));
               const roleConf = topStaffRole ? ROLE_CONFIG[topStaffRole] : null;
               const RoleIcon = roleConf?.icon;
+              const userDisplayName = user.display_name || user.discord_username || user.email?.split('@')[0] || 'Unnamed';
+              const userAvatarUrl = user.avatar_url || user.discord_avatar;
               return (
                 <ContextMenu key={user.id}>
                   <ContextMenuTrigger asChild>
@@ -729,17 +732,17 @@ export default function UserLifecyclePanel() {
                       {/* User info */}
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-muted/20 flex items-center justify-center shrink-0 overflow-hidden">
-                          {user.avatar_url ? (
-                            <img src={user.avatar_url} className="w-full h-full object-cover" alt="" />
+                          {userAvatarUrl ? (
+                            <img src={userAvatarUrl} className="w-full h-full object-cover" alt="" />
                           ) : (
                             <span className="text-[11px] font-bold text-muted-foreground/50">
-                              {(user.display_name || user.email || '?')[0].toUpperCase()}
+                              {userDisplayName[0].toUpperCase()}
                             </span>
                           )}
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-foreground truncate">
-                            {user.display_name || 'Unnamed'}
+                            {userDisplayName}
                           </p>
                           <p className="text-[10px] text-muted-foreground/40 truncate">
                             {user.email || user.user_id.slice(0, 8)}
