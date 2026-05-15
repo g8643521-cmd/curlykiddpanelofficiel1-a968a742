@@ -107,7 +107,7 @@ const Auth = () => {
     setDiscordLoading(true);
     try {
       const redirectUri = `${window.location.origin}/`;
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/discord-oauth?action=login_callback`;
+      const fnUrl = `/api/public/discord-oauth?action=login_callback`;
       const res = await fetch(fnUrl, {
         method: "POST",
         headers: {
@@ -169,7 +169,7 @@ const Auth = () => {
     setDiscordLoading(true);
     try {
       const redirectUri = `${window.location.origin}/`;
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/discord-oauth?action=login_initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      const fnUrl = `/api/public/discord-oauth?action=login_initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
       const res = await fetch(fnUrl, {
         headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
       });

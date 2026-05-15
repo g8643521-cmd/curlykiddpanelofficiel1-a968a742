@@ -158,7 +158,7 @@ const Profile = () => {
         if (!session) return;
 
         const redirectUri = `${window.location.origin}/profile`;
-        const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/discord-oauth?action=callback`;
+        const fnUrl = `/api/public/discord-oauth?action=callback`;
         const res = await fetch(fnUrl, {
           method: 'POST',
           headers: {
@@ -211,7 +211,7 @@ const Profile = () => {
 
     try {
       const redirectUri = `${window.location.origin}/profile`;
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/discord-oauth?action=initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      const fnUrl = `/api/public/discord-oauth?action=initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
       const res = await fetch(fnUrl, {
         headers: {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -254,7 +254,7 @@ const Profile = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/discord-oauth?action=unlink`;
+      const fnUrl = `/api/public/discord-oauth?action=unlink`;
       const res = await fetch(fnUrl, {
         method: 'POST',
         headers: {
