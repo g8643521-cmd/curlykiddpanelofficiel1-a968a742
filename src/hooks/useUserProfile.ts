@@ -107,7 +107,7 @@ export const useUserProfile = () => {
   }, []);
 
   const uploadAvatar = async (file: File): Promise<string | null> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return null;
 
     setIsUploading(true);
@@ -150,13 +150,13 @@ export const useUserProfile = () => {
   };
 
   const updateDisplayName = async (name: string): Promise<boolean> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return false;
 
     const { error } = await supabase
       .from('profiles')
       .update({ display_name: name })
-      .eq('id', session.user.id);
+      .eq('user_id', session.user.id);
 
     if (error) {
       console.error('Error updating display name:', error);
@@ -168,7 +168,7 @@ export const useUserProfile = () => {
   };
 
   const addXp = async (amount: number): Promise<{ leveledUp: boolean; newLevel: number }> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session || !profile) return { leveledUp: false, newLevel: profile?.level || 1 };
 
     // @ts-ignore - rpc function not in generated types yet
@@ -189,7 +189,7 @@ export const useUserProfile = () => {
 
 
   const awardBadge = async (badgeName: string): Promise<boolean> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return false;
 
     // Find badge by name
