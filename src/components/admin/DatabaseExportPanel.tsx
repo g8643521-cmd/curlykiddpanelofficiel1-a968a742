@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCircle2, Shield, Clock, HardDrive, Table2, Info, RefreshCw } from 'lucide-react';
+import { Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCircle2, Shield, Clock, HardDrive, Table2, Info, RefreshCw, AlertTriangle, TimerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
