@@ -12,5 +12,8 @@ verify_jwt = false
 [functions.cheater-webhook]
 verify_jwt = false
 
+[functions.ip-geo]
+verify_jwt = false
+
 [functions.screensharex-lookup]
 verify_jwt = false
