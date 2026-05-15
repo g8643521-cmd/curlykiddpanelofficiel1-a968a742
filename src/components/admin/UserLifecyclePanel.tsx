@@ -34,6 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { handleSupabaseError } from '@/lib/authRecovery';
 import { getSessionWithTimeout } from '@/lib/authSession';
+import { getProfileAvatarUrl } from '@/lib/avatar';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ interface UserProfile {
   flagged_at: string | null;
   flagged_reason: string | null;
   discord_username: string | null;
+  discord_user_id: string | null;
   discord_avatar: string | null;
 }
 
@@ -717,7 +719,7 @@ export default function UserLifecyclePanel() {
               const roleConf = topStaffRole ? ROLE_CONFIG[topStaffRole] : null;
               const RoleIcon = roleConf?.icon;
               const userDisplayName = user.display_name || user.discord_username || user.email?.split('@')[0] || 'Unnamed';
-              const userAvatarUrl = user.avatar_url || user.discord_avatar;
+              const userAvatarUrl = getProfileAvatarUrl(user);
               return (
                 <ContextMenu key={user.id}>
                   <ContextMenuTrigger asChild>
@@ -841,8 +843,8 @@ export default function UserLifecyclePanel() {
               <div className="sticky top-0 z-10 px-6 py-4 border-b border-border/15 bg-card/95 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-muted/20 flex items-center justify-center overflow-hidden shrink-0">
-                    {selectedUser.avatar_url ? (
-                      <img src={selectedUser.avatar_url} className="w-full h-full object-cover" alt="" />
+                    {getProfileAvatarUrl(selectedUser) ? (
+                      <img src={getProfileAvatarUrl(selectedUser)!} className="w-full h-full object-cover" alt="" />
                     ) : (
                       <span className="text-lg font-bold text-muted-foreground/50">
                         {(selectedUser.display_name || '?')[0].toUpperCase()}
