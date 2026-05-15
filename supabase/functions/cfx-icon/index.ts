@@ -5,10 +5,10 @@ Deno.serve(async (req) => {
 
   try {
     const { serverCode, v } = await req.json().catch(() => ({}));
-    if (!serverCode || serverCode === "__healthcheck__") {
-      return new Response(JSON.stringify({ ok: true }), {
+    if (!serverCode || serverCode === "__healthcheck__" || serverCode === "healthcheck") {
+      return new Response(JSON.stringify({ ok: true, healthcheck: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: serverCode ? 404 : 200,
+        status: 200,
       });
     }
 

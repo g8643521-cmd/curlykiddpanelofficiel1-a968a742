@@ -15,7 +15,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const serverCode = cleanCode(body.serverCode || body.code || body.query);
-    if (!serverCode || serverCode === "healthcheck") return json({ error: "Valid serverCode is required" }, 400);
+    if (serverCode === "healthcheck" || body?.healthcheck) return json({ ok: true, healthcheck: true });
+    if (!serverCode) return json({ error: "Valid serverCode is required" }, 400);
 
     const upstream = await fetch(`https://servers-frontend.fivem.net/api/servers/single/${serverCode}`, {
       headers: { Accept: "application/json", "User-Agent": "CurlyKiddPanel/1.0" },

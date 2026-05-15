@@ -28,8 +28,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { discord_id, query } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const { discord_id, query, healthcheck } = body || {};
 
+    if (healthcheck || query === "ping") {
+      return json({ success: true, healthcheck: true });
+    }
     if (!discord_id || typeof discord_id !== "string") {
       return json({ success: false, error: "discord_id is required" }, 400);
     }
