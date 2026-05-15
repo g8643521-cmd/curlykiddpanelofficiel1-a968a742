@@ -1,5 +1,5 @@
 import { ClientOnly } from '@tanstack/react-router';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
 const App = lazy(() => import('@/App'));
 
@@ -9,12 +9,31 @@ const fallback = (
   </div>
 );
 
+function DiscordCallbackForwarder({ children }: { children: React.ReactNode }) {
+  const [forwarding, setForwarding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('state') === 'discord_login' && !!params.get('code');
+  });
+
+  useEffect(() => {
+    if (!forwarding) return;
+    const search = window.location.search;
+    window.location.replace(`/auth${search}`);
+  }, [forwarding]);
+
+  if (forwarding) return fallback;
+  return <>{children}</>;
+}
+
 export function SpaRoute() {
   return (
     <ClientOnly fallback={fallback}>
-      <Suspense fallback={fallback}>
-        <App />
-      </Suspense>
+      <DiscordCallbackForwarder>
+        <Suspense fallback={fallback}>
+          <App />
+        </Suspense>
+      </DiscordCallbackForwarder>
     </ClientOnly>
   );
 }
