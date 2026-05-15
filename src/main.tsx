@@ -5,7 +5,8 @@ import { installAuthRecovery } from "@/lib/authRecovery";
 
 const restoreSpaPath = () => {
   const params = new URLSearchParams(window.location.search);
-  if (window.location.pathname === "/" && params.get("state") === "discord_login" && params.get("code")) {
+  const pathname = window.location.pathname.replace(/\/$/, "") || "/";
+  if (pathname !== "/login" && params.get("state") === "discord_login" && params.get("code")) {
     window.history.replaceState({}, "", `/login${window.location.search}${window.location.hash}`);
     return;
   }
