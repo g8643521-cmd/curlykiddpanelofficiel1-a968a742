@@ -40,7 +40,7 @@ const Auth = () => {
   usePageMeta({
     title: "Sign In or Create Account — CurlyKiddPanel",
     description: "Log in or sign up to CurlyKiddPanel and access FiveM server analytics, the cheater database, mods directory and player tracking tools.",
-    path: "/auth",
+    path: "/login",
   });
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [isLoading, setIsLoading] = useState(false);
@@ -122,13 +122,13 @@ const Auth = () => {
       }
       void logActivity({ category: "auth", action: "Discord login", severity: "info", metadata: { discord_id: data?.discord?.id } });
       // Clean URL before redirecting to magic link
-      window.history.replaceState({}, "", "/auth");
+      window.history.replaceState({}, "", "/login");
       window.location.href = data.action_link;
     } catch (err: any) {
       console.error("Discord callback error:", err);
       toast.error(err?.message || "Could not sign in with Discord");
       setDiscordLoading(false);
-      window.history.replaceState({}, "", "/auth");
+      window.history.replaceState({}, "", "/login");
     }
   }, []);
 

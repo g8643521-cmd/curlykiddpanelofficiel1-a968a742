@@ -19,7 +19,7 @@ function DiscordCallbackForwarder({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!forwarding) return;
     const search = window.location.search;
-    window.location.replace(`/auth${search}`);
+    window.location.replace(`/login${search}`);
   }, [forwarding]);
 
   if (forwarding) return fallback;

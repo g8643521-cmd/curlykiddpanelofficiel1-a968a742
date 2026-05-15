@@ -145,7 +145,7 @@ export default function AccountStatusGuard({ children }: { children: React.React
                 className="w-full border-red-500/40 bg-red-500/10 text-red-200 hover:bg-red-500/20 hover:text-white"
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  navigate('/auth', { replace: true });
+                  navigate('/login', { replace: true });
                 }}
               >
                 <LogOut className="w-4 h-4 mr-2" />

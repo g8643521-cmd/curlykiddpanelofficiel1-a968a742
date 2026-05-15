@@ -69,9 +69,9 @@ export async function recoverFromBadJwt(reason = 'expired session'): Promise<voi
   // Give the toast a moment, then hard-reload to a clean state.
   setTimeout(() => {
     try {
-      window.location.replace('/auth');
+      window.location.replace('/login');
     } catch {
-      window.location.href = '/auth';
+      window.location.href = '/login';
     }
   }, 600);
 }

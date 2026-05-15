@@ -130,7 +130,7 @@ const Footer = () => {
                 </a>
               </li>
               <li>
-                <button type="button" onClick={() => navigate('/auth')} className={linkClass}>
+                <button type="button" onClick={() => navigate('/login')} className={linkClass}>
                   Get Started
                 </button>
               </li>
@@ -143,7 +143,7 @@ const Footer = () => {
             <ul className="space-y-3.5">
               <li><button type="button" onClick={() => navigate('/profile')} className={linkClass}>Profile</button></li>
               <li><button type="button" onClick={() => navigate('/settings')} className={linkClass}>Settings</button></li>
-              <li><button type="button" onClick={() => navigate('/auth')} className={linkClass}>Sign In</button></li>
+              <li><button type="button" onClick={() => navigate('/login')} className={linkClass}>Sign In</button></li>
             </ul>
           </div>
 
