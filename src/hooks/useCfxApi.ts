@@ -288,28 +288,36 @@ export const useCfxApi = () => {
       }
 
     } catch (err) {
+      // AsyncRequestError already carries a friendly message + kind.
+      const isAsyncErr = err instanceof AsyncRequestError;
       const raw = err instanceof Error ? err.message : "Failed to fetch server data";
       const stack = err instanceof Error && err.stack ? err.stack : "";
-      // Normalize backend / network errors into a single user-facing message
       const looksOffline =
-        /503|temporarily unavailable|SUPABASE_EDGE_RUNTIME_ERROR|Failed to fetch|NetworkError|timeout|502|504/i.test(raw);
-      const message = looksOffline
-        ? t("lookup.offline")
-        : raw;
+        isAsyncErr
+          ? err.kind === "timeout" || err.kind === "network" || err.kind === "server"
+          : /503|temporarily unavailable|SUPABASE_EDGE_RUNTIME_ERROR|Failed to fetch|NetworkError|timeout|502|504/i.test(raw);
+      const message = looksOffline ? t("lookup.offline") : raw;
       setError(message);
       setErrorDetails(stack ? `${raw}\n\n${stack}` : raw);
-      // Only clear data if this is NOT a refresh - keep existing data on refresh failures
       if (!isRefresh) {
-        toast.error(message);
+        // Single toast (deduped via id) so retries don't spam.
+        toast.error(message, { id: `cfx-lookup-error-${serverCode}` });
         setServerData(null);
       } else {
-        // Silent failure on refresh - just log it
         console.log("Refresh failed, keeping existing data:", message);
       }
     } finally {
+      // GUARANTEE the loading state always resolves.
       setIsLoading(false);
     }
   }, [serverData, t]);
+
+  // Abort any in-flight lookup when the hook unmounts.
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const clearData = useCallback(() => {
     setServerData(null);
