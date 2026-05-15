@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const serverCode = cleanCode(body.serverCode || body.code || body.query);
     if (serverCode === "healthcheck" || body?.healthcheck) return json({ ok: true, healthcheck: true });
-    if (!serverCode) return json({ error: "Valid serverCode is required" }, 400);
+    if (!serverCode) return json({ success: false, error: "Valid serverCode is required", invalid: true });
 
     const upstream = await fetch(`https://servers-frontend.fivem.net/api/servers/single/${serverCode}`, {
       headers: { Accept: "application/json", "User-Agent": "CurlyKiddPanel/1.0" },
@@ -24,7 +24,13 @@ Deno.serve(async (req) => {
     });
 
     if (!upstream.ok) {
-      return json({ error: upstream.status === 404 ? "Server not found" : "Lookup failed", status: upstream.status }, upstream.status === 404 ? 404 : 502);
+      return json({
+        success: false,
+        error: upstream.status === 404 ? "Server not found" : "Lookup failed",
+        notFound: upstream.status === 404,
+        fallback: upstream.status !== 404,
+        status: upstream.status,
+      });
     }
 
     const payload = await upstream.json();
@@ -34,6 +40,7 @@ Deno.serve(async (req) => {
     const [ip, rawPort] = String(endpoints[0] || "").split(":");
 
     return json({
+      success: true,
       hostname: data?.hostname || data?.sv_projectName || serverCode,
       players: Array.isArray(data?.players) ? data.players : [],
       playerCount: Number(data?.clients ?? 0),
@@ -58,6 +65,6 @@ Deno.serve(async (req) => {
       banner: vars.banner_detail || vars.banner_connecting || null,
     });
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : "Lookup failed" }, 502);
+    return json({ success: false, error: err instanceof Error ? err.message : "Lookup failed", fallback: true });
   }
 });
