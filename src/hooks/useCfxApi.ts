@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { GamificationService } from "@/services/gamificationService";
 import { prefetchServerIcon } from "@/hooks/useServerIcon";
 import { useI18n } from "@/lib/i18n";
+import { runAsync, AsyncRequestError } from "@/lib/asyncRequest";
 
 // In-memory cache for server data to reduce API calls
 const serverCache = new Map<string, { data: ServerData; timestamp: number }>();
