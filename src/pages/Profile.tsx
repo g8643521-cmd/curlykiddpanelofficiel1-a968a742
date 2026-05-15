@@ -15,6 +15,8 @@ import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { usePresence } from '@/hooks/usePresence';
 import { toast } from 'sonner';
 import profileBanner from '@/assets/profile-banner.jpg';
+import { getProfileAvatarUrl } from '@/lib/avatar';
+import { syncCurrentUserProfile } from '@/lib/profileSync';
 
 const ROLE_DISPLAY: Record<string, { label: string; color: string }> = {
   owner: { label: 'OWNER', color: 'text-[hsl(var(--yellow))]' },
@@ -42,6 +44,9 @@ const Profile = () => {
     discord_user_id: string | null;
     discord_username: string | null;
     discord_avatar: string | null;
+    discord_guild_member: boolean | null;
+    discord_guild_status: string | null;
+    discord_guild_checked_at: string | null;
     email_confirmed_at: string | null;
     phone: string | null;
     updated_at: string | null;
@@ -105,16 +110,17 @@ const Profile = () => {
       }
 
       const user = session.user;
+      await syncCurrentUserProfile().catch(() => null);
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar')
+        .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
         .eq('user_id', user.id)
         .single();
 
       setUserInfo({
         email: user.email || '',
         display_name: (profile as any)?.display_name || user.user_metadata?.full_name || null,
-        avatar_url: (profile as any)?.avatar_url || user.user_metadata?.avatar_url || null,
+        avatar_url: getProfileAvatarUrl(profile as any) || user.user_metadata?.avatar_url || null,
         created_at: user.created_at,
         last_sign_in_at: user.last_sign_in_at || null,
         provider: user.app_metadata?.provider || 'email',
@@ -122,6 +128,9 @@ const Profile = () => {
         discord_user_id: (profile as any)?.discord_user_id || null,
         discord_username: (profile as any)?.discord_username || null,
         discord_avatar: (profile as any)?.discord_avatar || null,
+        discord_guild_member: (profile as any)?.discord_guild_member ?? null,
+        discord_guild_status: (profile as any)?.discord_guild_status || null,
+        discord_guild_checked_at: (profile as any)?.discord_guild_checked_at || null,
         email_confirmed_at: user.email_confirmed_at || null,
         phone: user.phone || null,
         updated_at: user.updated_at || null,
