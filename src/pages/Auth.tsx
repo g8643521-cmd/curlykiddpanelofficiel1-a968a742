@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, User, ArrowRight, Chrome, ArrowLeft, Loader2, Shield, Zap, Database, Users, CheckCircle2, Sparkles, Star, TrendingUp, Activity, Quote, Lock as LockIcon } from "lucide-react";
@@ -48,6 +48,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const processedDiscordCode = useRef<string | null>(null);
 
   // Visibility flags loaded from admin_settings (Discord-only by default)
   const [isReturning] = useState(() => {
@@ -106,7 +107,8 @@ const Auth = () => {
   const handleDiscordCallback = useCallback(async (code: string) => {
     setDiscordLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/`;
+      const callbackPath = searchParams.get("discord_redirect_path") || "/login";
+      const redirectUri = `${window.location.origin}${callbackPath.startsWith("/") ? callbackPath : "/login"}`;
       const fnUrl = `/api/public/discord-oauth?action=login_callback`;
       const res = await fetch(fnUrl, {
         method: "POST",
@@ -130,7 +132,7 @@ const Auth = () => {
       setDiscordLoading(false);
       window.history.replaceState({}, "", "/login");
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -138,7 +140,10 @@ const Auth = () => {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     if (code && state === "discord_login") {
-      handleDiscordCallback(code);
+      if (processedDiscordCode.current !== code) {
+        processedDiscordCode.current = code;
+        handleDiscordCallback(code);
+      }
       return () => { active = false; };
     }
 
@@ -168,7 +173,7 @@ const Auth = () => {
   const handleDiscordLogin = async () => {
     setDiscordLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/`;
+      const redirectUri = `${window.location.origin}/login`;
       const fnUrl = `/api/public/discord-oauth?action=login_initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
       const res = await fetch(fnUrl, {
         headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
@@ -204,7 +209,7 @@ const Auth = () => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?mode=reset`,
+        redirectTo: `${window.location.origin}/login?mode=reset`,
       });
       if (error) throw error;
       toast.success(t("auth.reset_sent"));

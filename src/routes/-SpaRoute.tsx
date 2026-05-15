@@ -13,13 +13,15 @@ function DiscordCallbackForwarder({ children }: { children: React.ReactNode }) {
   const [forwarding, setForwarding] = useState(() => {
     if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
-    return params.get('state') === 'discord_login' && !!params.get('code');
+    const isDiscordCallback = params.get('state') === 'discord_login' && !!params.get('code');
+    return isDiscordCallback && window.location.pathname.replace(/\/$/, '') !== '/login';
   });
 
   useEffect(() => {
     if (!forwarding) return;
-    const search = window.location.search;
-    window.location.replace(`/login${search}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set('discord_redirect_path', window.location.pathname || '/');
+    window.location.replace(`/login?${params.toString()}${window.location.hash}`);
   }, [forwarding]);
 
   if (forwarding) return fallback;

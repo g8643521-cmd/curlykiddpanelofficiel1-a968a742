@@ -31,9 +31,18 @@ async function getDiscordCredentials(): Promise<{ id: string; secret: string }> 
   return { id, secret };
 }
 
-function forceRootRedirectUri(redirectUri: string): string {
+function forceLoginRedirectUri(redirectUri: string): string {
   const parsed = new URL(redirectUri);
-  return `${parsed.origin}/`;
+  return `${parsed.origin}/login`;
+}
+
+function getDiscordCallbackRedirectUri(redirectUri: string): string {
+  const parsed = new URL(redirectUri);
+  const path = parsed.pathname.replace(/\/$/, "") || "/";
+  if (path === "/auth" || path === "/login" || path === "/") {
+    return `${parsed.origin}${path === "/" ? "/" : path}`;
+  }
+  return `${parsed.origin}/login`;
 }
 
 async function getUserFromAuthHeader(request: Request) {
@@ -103,7 +112,7 @@ async function handle(request: Request): Promise<Response> {
     if (!requested) return json({ error: "redirect_uri required" }, 400);
     let redirectUri: string;
     try {
-      redirectUri = forceRootRedirectUri(requested);
+      redirectUri = forceLoginRedirectUri(requested);
     } catch {
       return json({ error: "invalid redirect_uri" }, 400);
     }
@@ -125,7 +134,7 @@ async function handle(request: Request): Promise<Response> {
     if (!code || !requested) return json({ error: "code and redirect_uri required" }, 400);
     let redirect_uri: string;
     try {
-      redirect_uri = forceRootRedirectUri(requested);
+      redirect_uri = getDiscordCallbackRedirectUri(requested);
     } catch {
       return json({ error: "invalid redirect_uri" }, 400);
     }
