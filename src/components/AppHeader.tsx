@@ -368,6 +368,14 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden border-border/40 shadow-2xl">
+                {/* Discord/profile sync debug pill */}
+                <div className="px-3 pt-2 pb-1 flex flex-wrap items-center gap-1.5 bg-card/60 border-b border-border/30">
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 mr-1">sync</span>
+                  <StatusPill label="profile" state={fetchState === 'ok' ? 'ok' : fetchState === 'loading' ? 'loading' : fetchState === 'no-session' ? 'missing' : 'error'} title={fetchError ?? undefined} />
+                  <StatusPill label="avatar" state={avatarStatus} title={profile?.avatar_url ?? 'no url'} />
+                  <StatusPill label="banner" state={bannerStatus} title={profile?.banner_url ?? 'no url'} />
+                  <StatusPill label="discord" state={profile?.discord_user_id ? 'ok' : 'missing'} title={profile?.discord_user_id ?? 'not linked'} />
+                </div>
                 {/* Profile banner */}
                 <div className="relative h-24 overflow-hidden bg-muted/40">
                   <img
@@ -378,7 +386,19 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                     decoding="sync"
                     fetchPriority="high"
                     className="absolute inset-0 w-full h-full object-cover"
+                    onLoad={() => setBannerStatus(profile?.banner_url ? 'ok' : 'missing')}
+                    onError={() => setBannerStatus('error')}
                   />
+                  {bannerStatus === 'loading' && (
+                    <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-background/70 text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> banner
+                    </div>
+                  )}
+                  {bannerStatus === 'error' && (
+                    <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-destructive/80 text-destructive-foreground">
+                      banner failed
+                    </div>
+                  )}
                 </div>
 
                 {/* Profile header */}
@@ -390,12 +410,24 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                           src={profile.avatar_url}
                           alt=""
                           className="w-16 h-16 rounded-full object-cover ring-4 ring-background shadow-lg"
+                          onLoad={() => setAvatarStatus('ok')}
+                          onError={() => setAvatarStatus('error')}
                         />
                       ) : (
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center ring-4 ring-background shadow-lg">
                           <span className="text-xl font-bold text-primary">
                             {(profile?.display_name || '?').charAt(0).toUpperCase()}
                           </span>
+                        </div>
+                      )}
+                      {avatarStatus === 'loading' && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-background ring-2 ring-background flex items-center justify-center">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+                      {avatarStatus === 'error' && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive ring-2 ring-background flex items-center justify-center" title="Avatar failed to load">
+                          <XCircle className="w-3 h-3 text-destructive-foreground" />
                         </div>
                       )}
                       <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[hsl(var(--green))] ring-2 ring-background" title="Online" />
