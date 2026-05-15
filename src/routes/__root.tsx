@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
+import { RootErrorBoundary } from '@/components/RootErrorBoundary';
 import '@/index.css';
 
 export const Route = createRootRoute({
@@ -48,7 +49,9 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <RootErrorBoundary>
+        <Outlet />
+      </RootErrorBoundary>
     </RootDocument>
   );
 }

@@ -6,6 +6,10 @@ export function getRouter() {
     routeTree,
     scrollRestoration: true,
     trailingSlash: 'never',
+    // Show pending UI quickly so transitions never feel "frozen", but
+    // keep it long enough to avoid flash on fast routes.
+    defaultPendingMs: 200,
+    defaultPendingMinMs: 300,
   });
 }
 

@@ -17,6 +17,7 @@ import { useServerPolling } from "@/hooks/useServerPolling";
 import { useAdminStatus } from "@/hooks/useAdminStatus";
 import { usePresence } from "@/hooks/usePresence";
 import { useAuthReady } from "@/hooks/useAuthReady";
+import { ErrorCard } from "@/components/feedback/ErrorCard";
 
 // Lazy-load heavy components
 const CosmicNebulaBackground = lazy(() => import("@/components/CosmicNebulaBackground"));
@@ -195,24 +196,14 @@ const Dashboard = () => {
             <div ref={searchSectionRef} className="scroll-mt-24">
               <UnifiedSearch onServerSearch={handleServerSelect} isServerLoading={isLoading} />
               {lookupError && !isLoading && (
-                <div className="max-w-2xl mx-auto mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                    <p className="text-sm font-medium text-destructive">
-                      {lookupError}
-                    </p>
-                  </div>
-                  {lookupErrorDetails && (
-                    <details className="mt-2 group">
-                      <summary className="text-xs text-destructive/80 hover:text-destructive cursor-pointer select-none list-none flex items-center gap-1">
-                        <span className="transition-transform group-open:rotate-90 inline-block">▸</span>
-                        {t("lookup.details")}
-                      </summary>
-                      <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-background/60 border border-destructive/20 p-2 text-[11px] leading-relaxed text-destructive/90 whitespace-pre-wrap break-all font-mono">
-                        {lookupErrorDetails}
-                      </pre>
-                    </details>
-                  )}
+                <div className="max-w-2xl mx-auto mt-3">
+                  <ErrorCard
+                    title={t("lookup.failed") || "Server lookup failed"}
+                    message={lookupError}
+                    details={lookupErrorDetails}
+                    onRetry={lastSearchedCode ? () => fetchServerData(lastSearchedCode, true) : undefined}
+                    isRetrying={isLoading}
+                  />
                 </div>
               )}
             </div>
