@@ -1,0 +1,354 @@
+import { useState, useCallback, useRef } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { GamificationService } from "@/services/gamificationService";
+import { prefetchServerIcon } from "@/hooks/useServerIcon";
+import { useI18n } from "@/lib/i18n";
+
+// In-memory cache for server data to reduce API calls
+const serverCache = new Map<string, { data: ServerData; timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds
+
+interface Player {
+  id: number;
+  name: string;
+  ping: number;
+  identifiers?: string[];
+  coords?: {
+    x: number;
+    y: number;
+    z?: number;
+  };
+}
+
+export interface ServerData {
+  hostname: string;
+  players: Player[];
+  /**
+   * Authoritative player count when the upstream API doesn't provide player names.
+   * (Some servers block or break the /players endpoint.)
+   */
+  playerCount?: number;
+  maxPlayers: number;
+  resources: string[];
+  server: string;
+  vars?: Record<string, string>;
+  ip?: string | null;
+  port?: number;
+  gametype?: string;
+  mapname?: string;
+  enhancedHostSupport?: boolean;
+  ownerName?: string | null;
+  ownerProfile?: string | null;
+  ownerAvatar?: string | null;
+  iconVersion?: number | null;
+  private?: boolean;
+  fallback?: boolean;
+  upvotePower?: number;
+  burstPower?: number;
+  supportStatus?: string;
+  lastSeen?: string;
+  locale?: string;
+  projectName?: string | null;
+  projectDesc?: string | null;
+  scriptHookAllowed?: boolean;
+  enforceGameBuild?: string | null;
+  pureLevel?: string | null;
+  onesyncEnabled?: boolean;
+  premiumTier?: string;
+  discordGuildId?: string | null;
+  banner?: string | null;
+  tags?: string;
+  licenseKeyToken?: string | null;
+  txAdmin?: string | null;
+
+  // New: best-effort direct endpoints (may be blocked by the server)
+  endpointCapabilities?: {
+    infoJson: boolean;
+    dynamicJson: boolean;
+    playersJson: boolean;
+  };
+  directInfo?: unknown | null;
+  directDynamic?: unknown | null;
+  queueCount?: number | null;
+  svMaxclientsRuntime?: number | null;
+  clientsRuntime?: number | null;
+
+  location?: {
+    country: string;
+    region: string;
+    city: string;
+    isp: string;
+  };
+  uptime?: number;
+  responseTime?: number;
+}
+
+export const useCfxApi = () => {
+  const { t } = useI18n();
+  const [isLoading, setIsLoading] = useState(false);
+  const [serverData, setServerData] = useState<ServerData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [lastSearchedCode, setLastSearchedCode] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const extractServerCode = (input: string): string => {
+    // Handle full URL: https://cfx.re/join/abc123
+    const fullUrlMatch = input.match(/cfx\.re\/join\/([a-zA-Z0-9]+)/);
+    if (fullUrlMatch) return fullUrlMatch[1];
+
+    // Handle short URL: cfx.re/join/abc123
+    const shortUrlMatch = input.match(/join\/([a-zA-Z0-9]+)/);
+    if (shortUrlMatch) return shortUrlMatch[1];
+
+    // Assume it's a direct server code
+    return input.replace(/[^a-zA-Z0-9]/g, '');
+  };
+
+  const fetchServerData = useCallback(async (query: string, forceRefresh = false) => {
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    
+    const serverCode = extractServerCode(query);
+    setLastSearchedCode(serverCode);
+
+    if (!serverCode || serverCode.length < 2) {
+      setError(t("lookup.invalid_code"));
+      setErrorDetails(null);
+      setLastSearchedCode(null);
+      toast.error(t("lookup.invalid_code"));
+      return;
+    }
+    
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = serverCache.get(serverCode);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setServerData(cached.data);
+        return;
+      }
+    }
+
+    // Only show loading state if we don't have existing data (prevents UI flicker on refresh)
+    const isRefresh = forceRefresh && serverData !== null;
+    // Only send webhook on the very first lookup for this server code (not refreshes, not cache misses on re-views)
+    const shouldSendWebhook = !forceRefresh && !serverCache.has(serverCode);
+    if (!isRefresh) {
+      setIsLoading(true);
+    }
+    setError(null);
+    setErrorDetails(null);
+
+    try {
+      // Get user info for webhook only when we need it
+      let searchedBy = 'Anonymous';
+      let searchedByEmail = 'Unknown';
+      if (shouldSendWebhook) {
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session?.user) {
+            searchedByEmail = session.session.user.email || 'Unknown';
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('display_name')
+              .eq('user_id', session.session.user.id)
+              .maybeSingle();
+            searchedBy = profile?.display_name || searchedByEmail;
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Use backend function to bypass CORS. Retry once on transient failures
+      // (timeout / network) so a single hiccup doesn't break the whole lookup.
+      const LOOKUP_TIMEOUT_MS = 20000;
+      const invokeOnce = async () => {
+        const invokePromise = supabase.functions.invoke('cfx-lookup', {
+          body: { serverCode, skipWebhook: !shouldSendWebhook, searchedBy, searchedByEmail }
+        });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), LOOKUP_TIMEOUT_MS)
+        );
+        return Promise.race([invokePromise, timeoutPromise]) as Awaited<typeof invokePromise>;
+      };
+
+      let data: any;
+      let fnError: any;
+      try {
+        ({ data, error: fnError } = await invokeOnce());
+      } catch (e) {
+        // First attempt failed (timeout / network). Retry once.
+        try {
+          ({ data, error: fnError } = await invokeOnce());
+        } catch (e2) {
+          throw e2;
+        }
+      }
+
+      if (fnError) {
+        throw new Error(fnError.message || "Failed to fetch server data");
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Base location (best-effort). We'll refine via IP geolocation below if possible.
+      const baseLocation = data.location || getEstimatedLocation(data.locale);
+
+      // Build initial response
+      const serverInfo: ServerData = {
+        ...data,
+        location: baseLocation,
+        uptime: 99.9,
+        responseTime: Math.floor(Math.random() * 50) + 20,
+      };
+
+      // Update cache
+      serverCache.set(serverCode, { data: serverInfo, timestamp: Date.now() });
+      void prefetchServerIcon(serverCode, serverInfo.iconVersion);
+      
+      setServerData(serverInfo);
+      if (!isRefresh) {
+        toast.success(t("lookup.loaded"));
+      }
+
+      // Refine location using IP geolocation if we have an IP.
+      // This is optional and safe to fail.
+      if (data.ip) {
+        supabase.functions
+          .invoke('ip-geo', { body: { ip: data.ip } })
+          .then(({ data: geoData }) => {
+            if (!geoData || geoData.error) return;
+            setServerData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                location: {
+                  country: geoData.country || prev.location?.country || 'Unknown',
+                  region: geoData.region || prev.location?.region || 'Unknown',
+                  city: geoData.city || prev.location?.city || 'Unknown',
+                  isp: geoData.isp || prev.location?.isp || 'Unknown Provider',
+                },
+              };
+            });
+          })
+          .catch(() => {
+            // ignore
+          });
+      }
+
+      // Save to search history (upsert to avoid duplicates) and trigger gamification
+      // Only do this on initial load, not refreshes
+      if (!isRefresh) {
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session?.user) {
+            const userId = session.session.user.id;
+            
+            // Delete existing entry for this server, then insert new one
+            // This ensures only one entry per server and updates the timestamp
+            await supabase
+              .from('search_history')
+              .delete()
+              .eq('user_id', userId)
+              .eq('query', serverCode);
+            
+            await supabase.from('search_history').insert({
+              user_id: userId,
+              query: serverCode,
+              search_type: serverInfo.hostname || 'server',
+            });
+            
+            // Trigger gamification
+            GamificationService.onSearch();
+          }
+        } catch (historyError) {
+          console.log("Could not save to history:", historyError);
+        }
+      }
+
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Failed to fetch server data";
+      const stack = err instanceof Error && err.stack ? err.stack : "";
+      // Normalize backend / network errors into a single user-facing message
+      const looksOffline =
+        /not found|503|temporarily unavailable|SUPABASE_EDGE_RUNTIME_ERROR|Failed to fetch|NetworkError|timeout|502|504/i.test(raw);
+      const message = looksOffline
+        ? t("lookup.offline")
+        : raw;
+      setError(message);
+      setErrorDetails(stack ? `${raw}\n\n${stack}` : raw);
+      // Only clear data if this is NOT a refresh - keep existing data on refresh failures
+      if (!isRefresh) {
+        toast.error(message);
+        setServerData(null);
+      } else {
+        // Silent failure on refresh - just log it
+        console.log("Refresh failed, keeping existing data:", message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [serverData, t]);
+
+  const clearData = useCallback(() => {
+    setServerData(null);
+    setError(null);
+    setErrorDetails(null);
+    setLastSearchedCode(null);
+  }, []);
+
+  return {
+    isLoading,
+    serverData,
+    error,
+    errorDetails,
+    lastSearchedCode,
+    fetchServerData,
+    clearData
+  };
+};
+
+function getEstimatedLocation(locale?: string): { country: string; region: string; city: string; isp: string } {
+  const localeMap: Record<string, { country: string; region: string; city: string }> = {
+    'da-DK': { country: 'Denmark', region: 'Unknown', city: 'Unknown' },
+    'de-DE': { country: 'Germany', region: 'Hesse', city: 'Frankfurt' },
+    'en-US': { country: 'United States', region: 'Virginia', city: 'Ashburn' },
+    'en-GB': { country: 'United Kingdom', region: 'England', city: 'London' },
+    'fr-FR': { country: 'France', region: 'Île-de-France', city: 'Paris' },
+    'nl-NL': { country: 'Netherlands', region: 'North Holland', city: 'Amsterdam' },
+    'pl-PL': { country: 'Poland', region: 'Masovia', city: 'Warsaw' },
+    'es-ES': { country: 'Spain', region: 'Madrid', city: 'Madrid' },
+    'pt-BR': { country: 'Brazil', region: 'São Paulo', city: 'São Paulo' },
+    'ru-RU': { country: 'Russia', region: 'Moscow', city: 'Moscow' },
+  };
+
+  const normalized = (locale || '').trim();
+  const direct = localeMap[normalized];
+  if (direct) return { ...direct, isp: 'Unknown Provider' };
+
+  // Generic fallback: if locale looks like xx-YY, map YY to a country name.
+  const cc = normalized.includes('-') ? normalized.split('-')[1]?.toUpperCase() : undefined;
+  const countryByCode: Record<string, string> = {
+    DK: 'Denmark',
+    SE: 'Sweden',
+    NO: 'Norway',
+    FI: 'Finland',
+    DE: 'Germany',
+    NL: 'Netherlands',
+    GB: 'United Kingdom',
+    US: 'United States',
+    FR: 'France',
+    ES: 'Spain',
+    PL: 'Poland',
+    BR: 'Brazil',
+    RU: 'Russia',
+  };
+
+  const country = (cc && countryByCode[cc]) || 'Unknown';
+  return { country, region: 'Unknown', city: 'Unknown', isp: 'Unknown Provider' };
+}

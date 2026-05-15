@@ -9,38 +9,288 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as ModsRouteImport } from './routes/mods'
+import { Route as ModeratorRouteImport } from './routes/moderator'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CoordinatesRouteImport } from './routes/coordinates'
+import { Route as CheatersRouteImport } from './routes/cheaters'
+import { Route as CheaterSearchRouteImport } from './routes/cheater-search'
+import { Route as BotRouteImport } from './routes/bot'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UserIdRouteImport } from './routes/user.$id'
+import { Route as EmbedServerCodeRouteImport } from './routes/embed.$serverCode'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModsRoute = ModsRouteImport.update({
+  id: '/mods',
+  path: '/mods',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModeratorRoute = ModeratorRouteImport.update({
+  id: '/moderator',
+  path: '/moderator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoordinatesRoute = CoordinatesRouteImport.update({
+  id: '/coordinates',
+  path: '/coordinates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheatersRoute = CheatersRouteImport.update({
+  id: '/cheaters',
+  path: '/cheaters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheaterSearchRoute = CheaterSearchRouteImport.update({
+  id: '/cheater-search',
+  path: '/cheater-search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BotRoute = BotRouteImport.update({
+  id: '/bot',
+  path: '/bot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserIdRoute = UserIdRouteImport.update({
+  id: '/user/$id',
+  path: '/user/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmbedServerCodeRoute = EmbedServerCodeRouteImport.update({
+  id: '/embed/$serverCode',
+  path: '/embed/$serverCode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/auth': typeof AuthRoute
+  '/bot': typeof BotRoute
+  '/cheater-search': typeof CheaterSearchRoute
+  '/cheaters': typeof CheatersRoute
+  '/coordinates': typeof CoordinatesRoute
+  '/dashboard': typeof DashboardRoute
+  '/moderator': typeof ModeratorRoute
+  '/mods': typeof ModsRoute
+  '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
+  '/embed/$serverCode': typeof EmbedServerCodeRoute
+  '/user/$id': typeof UserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/auth': typeof AuthRoute
+  '/bot': typeof BotRoute
+  '/cheater-search': typeof CheaterSearchRoute
+  '/cheaters': typeof CheatersRoute
+  '/coordinates': typeof CoordinatesRoute
+  '/dashboard': typeof DashboardRoute
+  '/moderator': typeof ModeratorRoute
+  '/mods': typeof ModsRoute
+  '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
+  '/embed/$serverCode': typeof EmbedServerCodeRoute
+  '/user/$id': typeof UserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/auth': typeof AuthRoute
+  '/bot': typeof BotRoute
+  '/cheater-search': typeof CheaterSearchRoute
+  '/cheaters': typeof CheatersRoute
+  '/coordinates': typeof CoordinatesRoute
+  '/dashboard': typeof DashboardRoute
+  '/moderator': typeof ModeratorRoute
+  '/mods': typeof ModsRoute
+  '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
+  '/embed/$serverCode': typeof EmbedServerCodeRoute
+  '/user/$id': typeof UserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/bot'
+    | '/cheater-search'
+    | '/cheaters'
+    | '/coordinates'
+    | '/dashboard'
+    | '/moderator'
+    | '/mods'
+    | '/profile'
+    | '/settings'
+    | '/embed/$serverCode'
+    | '/user/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/bot'
+    | '/cheater-search'
+    | '/cheaters'
+    | '/coordinates'
+    | '/dashboard'
+    | '/moderator'
+    | '/mods'
+    | '/profile'
+    | '/settings'
+    | '/embed/$serverCode'
+    | '/user/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/bot'
+    | '/cheater-search'
+    | '/cheaters'
+    | '/coordinates'
+    | '/dashboard'
+    | '/moderator'
+    | '/mods'
+    | '/profile'
+    | '/settings'
+    | '/embed/$serverCode'
+    | '/user/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  AuthRoute: typeof AuthRoute
+  BotRoute: typeof BotRoute
+  CheaterSearchRoute: typeof CheaterSearchRoute
+  CheatersRoute: typeof CheatersRoute
+  CoordinatesRoute: typeof CoordinatesRoute
+  DashboardRoute: typeof DashboardRoute
+  ModeratorRoute: typeof ModeratorRoute
+  ModsRoute: typeof ModsRoute
+  ProfileRoute: typeof ProfileRoute
+  SettingsRoute: typeof SettingsRoute
+  EmbedServerCodeRoute: typeof EmbedServerCodeRoute
+  UserIdRoute: typeof UserIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mods': {
+      id: '/mods'
+      path: '/mods'
+      fullPath: '/mods'
+      preLoaderRoute: typeof ModsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/moderator': {
+      id: '/moderator'
+      path: '/moderator'
+      fullPath: '/moderator'
+      preLoaderRoute: typeof ModeratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coordinates': {
+      id: '/coordinates'
+      path: '/coordinates'
+      fullPath: '/coordinates'
+      preLoaderRoute: typeof CoordinatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cheaters': {
+      id: '/cheaters'
+      path: '/cheaters'
+      fullPath: '/cheaters'
+      preLoaderRoute: typeof CheatersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cheater-search': {
+      id: '/cheater-search'
+      path: '/cheater-search'
+      fullPath: '/cheater-search'
+      preLoaderRoute: typeof CheaterSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bot': {
+      id: '/bot'
+      path: '/bot'
+      fullPath: '/bot'
+      preLoaderRoute: typeof BotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,12 +298,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/user/$id': {
+      id: '/user/$id'
+      path: '/user/$id'
+      fullPath: '/user/$id'
+      preLoaderRoute: typeof UserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/embed/$serverCode': {
+      id: '/embed/$serverCode'
+      path: '/embed/$serverCode'
+      fullPath: '/embed/$serverCode'
+      preLoaderRoute: typeof EmbedServerCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  AuthRoute: AuthRoute,
+  BotRoute: BotRoute,
+  CheaterSearchRoute: CheaterSearchRoute,
+  CheatersRoute: CheatersRoute,
+  CoordinatesRoute: CoordinatesRoute,
+  DashboardRoute: DashboardRoute,
+  ModeratorRoute: ModeratorRoute,
+  ModsRoute: ModsRoute,
+  ProfileRoute: ProfileRoute,
+  SettingsRoute: SettingsRoute,
+  EmbedServerCodeRoute: EmbedServerCodeRoute,
+  UserIdRoute: UserIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

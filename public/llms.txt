@@ -1,0 +1,12 @@
+# CurlyKiddPanel
+
+> FiveM toolkit with server analytics, a community cheater database, mods directory, coordinate lookup and live player tracking for server owners and players.
+
+## Pages
+
+- [Home](/): Overview of CurlyKiddPanel features for FiveM players and server owners.
+- [Sign in or sign up](/auth): Create an account to access the dashboard and tools.
+
+## Optional
+
+- [Public profile](/user/:id): Public CurlyKiddPanel profile with badges and activity.

@@ -1,0 +1,35 @@
+/dashboard
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/cheaters
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/cheater-search
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/mods
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/coordinates
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/bot
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/auth
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/admin
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/moderator
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/profile
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/settings
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+/*
+  X-Content-Type-Options: nosniff

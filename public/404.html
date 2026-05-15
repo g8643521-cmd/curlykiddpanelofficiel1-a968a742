@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CurlyKiddPanel</title>
+    <script>
+      (function () {
+        var path = window.location.pathname.replace(/\/$/, '') || '/';
+        var search = window.location.search || '';
+        var hash = window.location.hash || '';
+        var target = '/?__spa_path=' + encodeURIComponent(path) + (search ? '&' + search.slice(1) : '') + hash;
+        window.location.replace(target);
+      })();
+    </script>
+  </head>
+  <body>Redirecting…</body>
+</html>
