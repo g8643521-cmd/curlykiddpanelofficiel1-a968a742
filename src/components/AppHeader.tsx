@@ -66,6 +66,10 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
   const { t } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(getCachedProfile);
   const [copiedId, setCopiedId] = useState(false);
+  const [fetchState, setFetchState] = useState<'loading' | 'ok' | 'error' | 'no-session'>('loading');
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [avatarStatus, setAvatarStatus] = useState<'idle' | 'loading' | 'ok' | 'error' | 'missing'>('idle');
+  const [bannerStatus, setBannerStatus] = useState<'idle' | 'loading' | 'ok' | 'error' | 'missing'>('idle');
   const { isScanning, scanServerId, scanServerName, progress, stopScan } = useScanStore();
 
   const handleCopyId = () => {
