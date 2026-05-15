@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { useAuthReady } from "@/hooks/useAuthReady";
 
 export interface NotificationSetting {
   id: string;
@@ -12,6 +13,7 @@ export interface NotificationSetting {
 }
 
 export const useNotifications = () => {
+  const { user, isReady, isAuthenticated } = useAuthReady();
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -40,9 +42,9 @@ export const useNotifications = () => {
   };
 
   const fetchSettings = useCallback(async () => {
+    if (!isReady) return;
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) {
+      if (!isAuthenticated || !user) {
         setSettings([]);
         setIsLoading(false);
         return;
@@ -60,11 +62,11 @@ export const useNotifications = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, isReady, user]);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    if (isReady) fetchSettings();
+  }, [fetchSettings, isReady]);
 
   const addNotification = async (
     serverCode: string, 
