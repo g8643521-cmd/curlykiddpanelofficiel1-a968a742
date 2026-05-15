@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ModsRouteImport } from './routes/mods'
 import { Route as ModeratorRouteImport } from './routes/moderator'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CoordinatesRouteImport } from './routes/coordinates'
 import { Route as CheatersRouteImport } from './routes/cheaters'
@@ -43,6 +44,11 @@ const ModsRoute = ModsRouteImport.update({
 const ModeratorRoute = ModeratorRouteImport.update({
   id: '/moderator',
   path: '/moderator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/cheaters': typeof CheatersRoute
   '/coordinates': typeof CoordinatesRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/moderator': typeof ModeratorRoute
   '/mods': typeof ModsRoute
   '/profile': typeof ProfileRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/cheaters': typeof CheatersRoute
   '/coordinates': typeof CoordinatesRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/moderator': typeof ModeratorRoute
   '/mods': typeof ModsRoute
   '/profile': typeof ProfileRoute
@@ -145,6 +153,7 @@ export interface FileRoutesById {
   '/cheaters': typeof CheatersRoute
   '/coordinates': typeof CoordinatesRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/moderator': typeof ModeratorRoute
   '/mods': typeof ModsRoute
   '/profile': typeof ProfileRoute
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/cheaters'
     | '/coordinates'
     | '/dashboard'
+    | '/login'
     | '/moderator'
     | '/mods'
     | '/profile'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/cheaters'
     | '/coordinates'
     | '/dashboard'
+    | '/login'
     | '/moderator'
     | '/mods'
     | '/profile'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/cheaters'
     | '/coordinates'
     | '/dashboard'
+    | '/login'
     | '/moderator'
     | '/mods'
     | '/profile'
@@ -216,6 +228,7 @@ export interface RootRouteChildren {
   CheatersRoute: typeof CheatersRoute
   CoordinatesRoute: typeof CoordinatesRoute
   DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
   ModeratorRoute: typeof ModeratorRoute
   ModsRoute: typeof ModsRoute
   ProfileRoute: typeof ProfileRoute
@@ -253,6 +266,13 @@ declare module '@tanstack/react-router' {
       path: '/moderator'
       fullPath: '/moderator'
       preLoaderRoute: typeof ModeratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -344,6 +364,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheatersRoute: CheatersRoute,
   CoordinatesRoute: CoordinatesRoute,
   DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
   ModeratorRoute: ModeratorRoute,
   ModsRoute: ModsRoute,
   ProfileRoute: ProfileRoute,
