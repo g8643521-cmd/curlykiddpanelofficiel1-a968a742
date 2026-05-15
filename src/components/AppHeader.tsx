@@ -59,6 +59,34 @@ const setCachedProfile = (profile: Profile) => {
   } catch {}
 };
 
+type SyncState = 'idle' | 'loading' | 'ok' | 'error' | 'missing';
+
+const STATE_STYLES: Record<SyncState, string> = {
+  idle: 'bg-muted/40 text-muted-foreground/70',
+  loading: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  ok: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  error: 'bg-destructive/20 text-destructive border border-destructive/40',
+  missing: 'bg-muted/40 text-muted-foreground/80 border border-border/40',
+};
+
+const STATE_DOTS: Record<SyncState, string> = {
+  idle: 'bg-muted-foreground/40',
+  loading: 'bg-amber-400 animate-pulse',
+  ok: 'bg-emerald-400',
+  error: 'bg-destructive',
+  missing: 'bg-muted-foreground/40',
+};
+
+const StatusPill = ({ label, state, title }: { label: string; state: SyncState; title?: string }) => (
+  <span
+    title={title}
+    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wide ${STATE_STYLES[state]}`}
+  >
+    <span className={`w-1.5 h-1.5 rounded-full ${STATE_DOTS[state]}`} />
+    {label}: {state}
+  </span>
+);
+
 const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: AppHeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
