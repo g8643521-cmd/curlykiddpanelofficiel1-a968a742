@@ -106,7 +106,7 @@ const Auth = () => {
   const handleDiscordCallback = useCallback(async (code: string) => {
     setDiscordLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/`;
+      const redirectUri = `${window.location.origin}/login`;
       const fnUrl = `/api/public/discord-oauth?action=login_callback`;
       const res = await fetch(fnUrl, {
         method: "POST",
@@ -168,7 +168,7 @@ const Auth = () => {
   const handleDiscordLogin = async () => {
     setDiscordLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/`;
+      const redirectUri = `${window.location.origin}/login`;
       const fnUrl = `/api/public/discord-oauth?action=login_initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
       const res = await fetch(fnUrl, {
         headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
