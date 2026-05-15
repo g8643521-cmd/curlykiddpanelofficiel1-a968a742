@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { supabase } from '@/lib/supabase';
+import { getSessionWithTimeout } from '@/lib/authSession';
 import UserLifecyclePanel from '@/components/admin/UserLifecyclePanel';
 import HeroImagePanel from '@/components/admin/HeroImagePanel';
 import ManagedImagePanel from '@/components/admin/ManagedImagePanel';
@@ -175,6 +176,12 @@ const AdminPanel = () => {
   };
 
   const fetchStats = async () => {
+    const { data: { session } } = await getSessionWithTimeout();
+    if (!session) {
+      setStats({ totalUsers: 0, totalAdmins: 0, totalModerators: 0, totalCheaterReports: 0, recentActivity: [] });
+      return;
+    }
+
     const [usersCount, cheatersCount, rolesData, recentAudit] = await Promise.all([
       safeQuery(supabase.from('profiles').select('id', { count: 'exact', head: true }), 'profiles count', { count: 0, error: null } as any),
       safeQuery(supabase.from('cheater_reports').select('id', { count: 'exact', head: true }), 'cheaters count', { count: 0, error: null } as any),
