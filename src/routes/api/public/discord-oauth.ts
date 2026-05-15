@@ -56,7 +56,7 @@ async function getUserFromAuthHeader(request: Request) {
 
 async function autoJoinGuild(discordUserId: string, accessToken: string) {
   try {
-    const botToken = process.env.DISCORD_BOT_TOKEN;
+    const botToken = await getBotToken();
     if (!botToken) return false;
     const { data: guildSetting } = await supabaseAdmin
       .from("admin_settings")
