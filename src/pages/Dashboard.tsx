@@ -17,6 +17,7 @@ import { useServerPolling } from "@/hooks/useServerPolling";
 import { useAdminStatus } from "@/hooks/useAdminStatus";
 import { usePresence } from "@/hooks/usePresence";
 import { useAuthReady } from "@/hooks/useAuthReady";
+import { ErrorCard } from "@/components/feedback/ErrorCard";
 
 // Lazy-load heavy components
 const CosmicNebulaBackground = lazy(() => import("@/components/CosmicNebulaBackground"));
