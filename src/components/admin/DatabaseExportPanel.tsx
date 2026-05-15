@@ -43,22 +43,36 @@ const DatabaseExportPanel = () => {
 
   const fetchCounts = useCallback(async (tableList: string[]) => {
     setIsLoadingCounts(true);
+    const errors: Record<string, { type: 'timeout' | 'error'; message: string; durationMs: number; at: string }> = {};
     try {
       const results = await Promise.all(
         tableList.map(async (table) => {
+          const start = performance.now();
           try {
-            const countPromise = supabase.from(table).select('*', { count: 'exact', head: true });
-            const { count } = await Promise.race([
+            const countPromise = supabase.from(table).select('*', { count: 'exact', head: true }).then((res) => {
+              if (res.error) throw res.error;
+              return res;
+            });
+            const res: any = await Promise.race([
               countPromise,
-              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Query exceeded 8s timeout')), 8000)),
             ]);
-            return [table, count || 0] as const;
-          } catch {
+            return [table, res?.count || 0] as const;
+          } catch (e: any) {
+            const durationMs = Math.round(performance.now() - start);
+            const message = e?.message || String(e) || 'Unknown error';
+            errors[table] = {
+              type: message.toLowerCase().includes('timeout') ? 'timeout' : 'error',
+              message,
+              durationMs,
+              at: new Date().toISOString(),
+            };
             return [table, 0] as const;
           }
         })
       );
       setTableCounts(Object.fromEntries(results));
+      setTableErrors(errors);
     } finally {
       setIsLoadingCounts(false);
     }
