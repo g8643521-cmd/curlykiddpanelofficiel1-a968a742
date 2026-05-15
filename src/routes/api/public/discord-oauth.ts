@@ -302,8 +302,11 @@ async function handle(request: Request): Promise<Response> {
     const discordUser = await userRes.json();
 
     const avatarUrl = discordUser.avatar
-      ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+      ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.${String(discordUser.avatar).startsWith("a_") ? "gif" : "png"}?size=256`
       : null;
+
+    const joined = await autoJoinGuild(discordUser.id, tokenData.access_token);
+    const membership = joined ? { member: true, status: "joined" } : await checkGuildMember(discordUser.id);
 
     const { error: updateErr } = await supabaseAdmin
       .from("profiles")
@@ -311,17 +314,42 @@ async function handle(request: Request): Promise<Response> {
         discord_user_id: discordUser.id,
         discord_username: discordUser.username,
         discord_avatar: avatarUrl,
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+        discord_guild_member: membership.member,
+        discord_guild_status: membership.status,
+        discord_guild_checked_at: new Date().toISOString(),
       })
       .eq("user_id", user.id);
     if (updateErr) return json({ error: "Failed to update profile" }, 500);
 
-    const joined = await autoJoinGuild(discordUser.id, tokenData.access_token);
-
     return json({
       success: true,
       joined_guild: joined,
+      guild_member: membership.member,
+      guild_status: membership.status,
       discord: { id: discordUser.id, username: discordUser.username, avatar: avatarUrl },
     });
+  }
+
+  if (action === "membership") {
+    const user = await getUserFromAuthHeader(request);
+    if (!user) return json({ error: "Not authenticated" }, 401);
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("discord_user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!profile?.discord_user_id) return json({ member: false, status: "not_linked" });
+    const membership = await checkGuildMember(profile.discord_user_id as string);
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        discord_guild_member: membership.member,
+        discord_guild_status: membership.status,
+        discord_guild_checked_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+    return json({ member: membership.member, status: membership.status });
   }
 
   // Unlink Discord
