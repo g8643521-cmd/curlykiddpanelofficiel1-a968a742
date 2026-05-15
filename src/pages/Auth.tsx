@@ -317,12 +317,12 @@ const Auth = () => {
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Top bar */}
         <header className="px-6 sm:px-10 pt-6 sm:pt-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <a href="/" className="flex items-center gap-3 group" aria-label="Back to home">
             <BrandLogo size="md" />
-            <span className="hidden sm:inline-flex items-center rounded-md border border-border/40 bg-card/40 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+            <span className="hidden sm:inline-flex items-center rounded-md border border-border/40 bg-card/40 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 group-hover:text-foreground transition-colors">
               v2.0
             </span>
-          </div>
+          </a>
           <div className="flex items-center gap-2">
             <a
               href="https://discord.gg/curlykiddpanel"
