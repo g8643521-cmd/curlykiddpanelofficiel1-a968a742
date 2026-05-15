@@ -24,7 +24,7 @@ interface RoleState {
   isLoading: boolean;
 }
 
-let _state: RoleState = { roles: getCachedRoles(), isLoading: getCachedRoles().length === 0 };
+let _state: RoleState = { roles: [], isLoading: true };
 let _listeners = new Set<() => void>();
 let _fetchPromise: Promise<void> | null = null;
 let _lastFetchedUserId: string | null = null;
@@ -75,7 +75,9 @@ async function fetchRoles(force = false) {
 
       if (error) {
         console.error("Error checking role status:", error);
-        setState({ isLoading: false });
+        _lastFetchedUserId = session.user.id;
+        sessionStorage.removeItem(ROLE_CACHE_KEY);
+        setState({ roles: [], isLoading: false });
         return;
       }
 
@@ -157,10 +159,10 @@ export const useAdminStatus = () => {
   useEffect(() => {
     ensureAuthSub();
     ensureRealtime();
-    // Only fetch if we haven't fetched yet or are still loading
-    if (_state.isLoading || (_state.roles.length === 0 && !_fetchPromise)) {
-      fetchRoles();
-    }
+    // Always verify roles against the current restored session on mount.
+    // Never trust a role cache by itself; a stale cache can make admin pages
+    // render before RLS sees the correct user, which causes hanging loaders.
+    fetchRoles(_lastFetchedUserId === null);
   }, []);
 
   const computeFlags = (roleList: UserRole[]) => {
