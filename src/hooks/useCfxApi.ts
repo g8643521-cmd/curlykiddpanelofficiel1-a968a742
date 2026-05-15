@@ -163,41 +163,54 @@ export const useCfxApi = () => {
         } catch { /* ignore */ }
       }
 
-      // Use backend function to bypass CORS. Retry once on transient failures
-      // (timeout / network) so a single hiccup doesn't break the whole lookup.
-      const LOOKUP_TIMEOUT_MS = 20000;
-      const invokeOnce = async () => {
-        const invokePromise = supabase.functions.invoke('cfx-lookup', {
-          body: { serverCode, skipWebhook: !shouldSendWebhook, searchedBy, searchedByEmail }
-        });
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), LOOKUP_TIMEOUT_MS)
-        );
-        return Promise.race([invokePromise, timeoutPromise]) as Awaited<typeof invokePromise>;
-      };
+      // Hard-deadline lookup. Edge function has its own 9s upstream
+      // timeout; we give it 12s wall-clock on the client. runAsync
+      // GUARANTEES this resolves — no infinite loading possible.
+      const outcome = await runAsync(
+        async (signal) => {
+          const onAbort = () => {
+            // Translate signal into something supabase-js will respect by
+            // making the request promise reject ASAP. supabase-js doesn't
+            // accept an AbortSignal directly, but Promise.race in runAsync
+            // already wins the deadline.
+          };
+          signal.addEventListener("abort", onAbort);
+          try {
+            const { data: invokeData, error: invokeError } = await supabase.functions.invoke(
+              "cfx-lookup",
+              { body: { serverCode, skipWebhook: !shouldSendWebhook, searchedBy, searchedByEmail } },
+            );
+            if (invokeError) {
+              const body = await invokeError.context?.json?.().catch(() => null);
+              throw new Error(body?.error || invokeError.message || "Lookup failed");
+            }
+            if (invokeData?.error) {
+              throw new Error(invokeData.error);
+            }
+            return invokeData;
+          } finally {
+            signal.removeEventListener("abort", onAbort);
+          }
+        },
+        {
+          timeoutMs: 12000,
+          retries: 1,
+          signal: abortControllerRef.current.signal,
+          label: "cfx-lookup",
+        },
+      );
 
-      let data: any;
-      let fnError: any;
-      let lookupErrorBody: any;
-      try {
-        ({ data, error: fnError } = await invokeOnce());
-      } catch (e) {
-        // First attempt failed (timeout / network). Retry once.
-        try {
-          ({ data, error: fnError } = await invokeOnce());
-        } catch (e2) {
-          throw e2;
-        }
+      // If the call was aborted (user cancelled / new lookup), just exit
+      // silently. The new in-flight call will manage its own loading.
+      if (!outcome.ok && outcome.error.kind === "aborted") {
+        return;
       }
 
-      if (fnError) {
-        lookupErrorBody = await fnError.context?.json?.().catch(() => null);
-        throw new Error(lookupErrorBody?.error || fnError.message || "Failed to fetch server data");
+      if (!outcome.ok) {
+        throw outcome.error;
       }
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      const data = outcome.data;
 
       // Base location (best-effort). We'll refine via IP geolocation below if possible.
       const baseLocation = data.location || getEstimatedLocation(data.locale);
