@@ -152,27 +152,45 @@ const AdminPanel = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
-    await fetchStats();
-    setIsLoading(false);
+    try {
+      await fetchStats();
+    } catch (err) {
+      console.error('[AdminPanel] fetchStats failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const safeQuery = async <T,>(p: Promise<T>, label: string, fallback: T): Promise<T> => {
+    try {
+      const result = await Promise.race([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+      ]);
+      return result;
+    } catch (err) {
+      console.error(`[AdminPanel] ${label} failed:`, err);
+      return fallback;
+    }
   };
 
   const fetchStats = async () => {
     const [usersCount, cheatersCount, rolesData, recentAudit] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('cheater_reports').select('id', { count: 'exact', head: true }),
-      supabase.from('user_roles').select('role'),
-      supabase.from('audit_log').select('action, table_name, created_at, user_id').order('created_at', { ascending: false }).limit(8),
+      safeQuery(supabase.from('profiles').select('id', { count: 'exact', head: true }), 'profiles count', { count: 0, error: null } as any),
+      safeQuery(supabase.from('cheater_reports').select('id', { count: 'exact', head: true }), 'cheaters count', { count: 0, error: null } as any),
+      safeQuery(supabase.from('user_roles').select('role'), 'roles', { data: [], error: null } as any),
+      safeQuery(supabase.from('audit_log').select('action, table_name, created_at, user_id').order('created_at', { ascending: false }).limit(8), 'audit_log', { data: [], error: null } as any),
     ]);
-    if (recentAudit.error) {
-      console.error('[AdminPanel] audit_log fetch error:', recentAudit.error);
+    if ((recentAudit as any).error) {
+      console.error('[AdminPanel] audit_log fetch error:', (recentAudit as any).error);
     }
-    const roles = rolesData.data || [];
+    const roles = (rolesData as any).data || [];
     setStats({
-      totalUsers: usersCount.count || 0,
-      totalCheaterReports: cheatersCount.count || 0,
-      totalAdmins: roles.filter(r => r.role === 'admin').length,
-      totalModerators: roles.filter(r => r.role === 'moderator').length,
-      recentActivity: recentAudit.data || [],
+      totalUsers: (usersCount as any).count || 0,
+      totalCheaterReports: (cheatersCount as any).count || 0,
+      totalAdmins: roles.filter((r: any) => r.role === 'admin').length,
+      totalModerators: roles.filter((r: any) => r.role === 'moderator').length,
+      recentActivity: (recentAudit as any).data || [],
     });
   };
 
