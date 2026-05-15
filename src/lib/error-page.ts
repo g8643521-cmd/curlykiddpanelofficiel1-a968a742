@@ -1,30 +1,20 @@
-export function renderErrorPage(): string {
+export function renderErrorPage() {
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>This page didn't load</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CurlyKiddPanel</title>
     <style>
-      body { font: 15px/1.5 system-ui, -apple-system, sans-serif; background: #fafafa; color: #111; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 1.5rem; }
-      .card { max-width: 28rem; width: 100%; text-align: center; padding: 2rem; }
-      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
-      p { color: #4b5563; margin: 0 0 1.5rem; }
-      .actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
-      a, button { padding: 0.5rem 1rem; border-radius: 0.375rem; font: inherit; cursor: pointer; text-decoration: none; border: 1px solid transparent; }
-      .primary { background: #111; color: #fff; }
-      .secondary { background: #fff; color: #111; border-color: #d1d5db; }
+      html,body{margin:0;min-height:100%;background:#07100f;color:#f8fafc;font-family:Inter,system-ui,sans-serif}
+      main{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}
+      section{max-width:520px}h1{font-size:28px;margin:0 0 12px}p{color:#94a3b8;line-height:1.6}
+      a,button{display:inline-flex;margin:8px;padding:12px 18px;border-radius:10px;border:1px solid #1de9c3;background:#1de9c3;color:#04110f;font-weight:700;text-decoration:none;cursor:pointer}
+      a.secondary{background:transparent;color:#dbeafe;border-color:#334155}
     </style>
   </head>
   <body>
-    <div class="card">
-      <h1>This page didn't load</h1>
-      <p>Something went wrong on our end. You can try refreshing or head back home.</p>
-      <div class="actions">
-        <button class="primary" onclick="location.reload()">Try again</button>
-        <a class="secondary" href="/">Go home</a>
-      </div>
-    </div>
+    <main><section><h1>CurlyKiddPanel</h1><p>The app is restarting. Try refreshing the page.</p><button onclick="location.reload()">Refresh</button><a class="secondary" href="/">Go home</a></section></main>
   </body>
 </html>`;
 }

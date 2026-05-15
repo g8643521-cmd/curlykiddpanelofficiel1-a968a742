@@ -1,0 +1,12 @@
+/dashboard       /index.html   200!
+/cheaters        /index.html   200!
+/cheater-search  /index.html   200!
+/mods            /index.html   200!
+/coordinates     /index.html   200!
+/bot             /index.html   200!
+/auth            /index.html   200!
+/admin           /index.html   200!
+/moderator       /index.html   200!
+/profile         /index.html   200!
+/settings        /index.html   200!
+/*               /index.html   200!
