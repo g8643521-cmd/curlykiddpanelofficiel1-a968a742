@@ -278,7 +278,15 @@ const Profile = () => {
       const result = await res.json();
 
       if (result.success) {
-        setUserInfo(prev => prev ? { ...prev, discord_user_id: null, discord_username: null, discord_avatar: null } : prev);
+        setUserInfo(prev => prev ? {
+          ...prev,
+          discord_user_id: null,
+          discord_username: null,
+          discord_avatar: null,
+          discord_guild_member: null,
+          discord_guild_status: null,
+          discord_guild_checked_at: null,
+        } : prev);
         toast.success('Discord unlinked');
       }
     } catch {
