@@ -759,7 +759,7 @@ const Profile = () => {
               </div>
               <div className="px-6 py-5">
                 {userInfo?.discord_user_id ? (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       {userInfo.discord_avatar ? (
                         <img src={userInfo.discord_avatar} alt="" className="w-10 h-10 rounded-full" />
@@ -771,9 +771,30 @@ const Profile = () => {
                       <div>
                         <p className="text-sm font-medium text-foreground">{userInfo.discord_username}</p>
                         <p className="text-xs text-muted-foreground">ID: {userInfo.discord_user_id}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Server status: {userInfo.discord_guild_member ? 'Member of CurlyKidd Discord' : 'Not connected to CurlyKidd Discord'}
+                          {userInfo.discord_guild_status ? ` · ${userInfo.discord_guild_status}` : ''}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {!userInfo.discord_guild_member && discordInviteUrl && (
+                        <Button asChild variant="outline" size="sm" className="gap-1.5">
+                          <a href={discordInviteUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink className="w-4 h-4" />
+                            Join
+                          </a>
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={refreshDiscordMembership}
+                        disabled={isLinkingDiscord}
+                      >
+                        {isLinkingDiscord ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Activity className="w-4 h-4 mr-1" />}
+                        Check
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
