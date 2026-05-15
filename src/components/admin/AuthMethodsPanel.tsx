@@ -40,7 +40,7 @@ const AuthMethodsPanel = () => {
       try {
         const { data: { session } } = await getSessionWithTimeout();
         if (!session) throw new Error("Not signed in");
-        const { data, error } = await withTimeout(
+        const { data, error } = await withTimeout<any>(
           supabase
             .from("admin_settings")
             .select("key,value")
@@ -74,7 +74,7 @@ const AuthMethodsPanel = () => {
       const rows = KEYS.map((k) => ({ key: k.key, value: values[k.key] ? "true" : "false" }));
       const { data: { session } } = await getSessionWithTimeout();
       if (!session) throw new Error("Not signed in");
-      const { error } = await withTimeout(
+      const { error } = await withTimeout<any>(
         supabase.from("admin_settings").upsert(rows, { onConflict: "key" }),
         12000,
         "Saving login methods timed out",
