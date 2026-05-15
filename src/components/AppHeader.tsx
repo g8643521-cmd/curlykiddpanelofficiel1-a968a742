@@ -325,7 +325,12 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                   className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg border border-border/30 bg-card/40 hover:bg-card/60 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/40"
                 >
                   {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                    <img
+                      src={profile.avatar_url}
+                      alt=""
+                      className="w-6 h-6 rounded-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
                   ) : (
                     <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                       <span className="text-[10px] font-bold text-primary">
