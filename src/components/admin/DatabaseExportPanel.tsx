@@ -42,18 +42,25 @@ const DatabaseExportPanel = () => {
 
   const fetchCounts = useCallback(async (tableList: string[]) => {
     setIsLoadingCounts(true);
-    const results = await Promise.all(
-      tableList.map(async (table) => {
-        try {
-          const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
-          return [table, count || 0] as const;
-        } catch {
-          return [table, 0] as const;
-        }
-      })
-    );
-    setTableCounts(Object.fromEntries(results));
-    setIsLoadingCounts(false);
+    try {
+      const results = await Promise.all(
+        tableList.map(async (table) => {
+          try {
+            const countPromise = supabase.from(table).select('*', { count: 'exact', head: true });
+            const { count } = await Promise.race([
+              countPromise,
+              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+            ]);
+            return [table, count || 0] as const;
+          } catch {
+            return [table, 0] as const;
+          }
+        })
+      );
+      setTableCounts(Object.fromEntries(results));
+    } finally {
+      setIsLoadingCounts(false);
+    }
   }, []);
 
   useEffect(() => {
