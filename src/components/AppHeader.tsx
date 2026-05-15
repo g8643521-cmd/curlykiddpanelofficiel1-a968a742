@@ -175,10 +175,14 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
             setAvatarStatus(profileData.avatar_url ? 'loading' : 'missing');
             setBannerStatus(profileData.banner_url ? 'loading' : 'missing');
           } else if (error) {
+            // eslint-disable-next-line no-console
+            console.error('[AppHeader] profile fetch error', error);
+            const err = error as { message?: string; code?: string; details?: string; hint?: string };
+            const parts = [err.code, err.message, err.details, err.hint].filter(Boolean);
             setProfile(sessionFallback);
             setCachedProfile(sessionFallback);
             setFetchState('error');
-            setFetchError(error.message || 'unknown error');
+            setFetchError(parts.join(' · ') || 'unknown error');
             setAvatarStatus(sessionFallback.avatar_url ? 'loading' : 'missing');
             setBannerStatus('missing');
           } else {
