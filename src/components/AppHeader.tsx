@@ -131,7 +131,7 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
     sessionStorage.removeItem(PROFILE_CACHE_KEY);
     await supabase.auth.signOut();
     toast.success(t('nav.logged_out'));
-    navigate('/auth');
+    navigate('/login');
   };
 
   const hasStoredSession = () => {
@@ -153,7 +153,7 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
       return;
     }
     // Navigate instantly — never await network/auth calls on a click
-    navigate(hasStoredSession() ? '/dashboard' : '/auth');
+    navigate(hasStoredSession() ? '/dashboard' : '/login');
   };
 
   const handleStopActiveScan = async () => {

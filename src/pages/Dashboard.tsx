@@ -96,7 +96,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (!isReady) return;
     if (!isAuthenticated) {
-      navigate("/auth");
+      navigate("/login");
     }
   }, [isReady, isAuthenticated, navigate]);
 

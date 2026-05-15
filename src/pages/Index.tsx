@@ -49,7 +49,7 @@ const Index = () => {
   ];
 
   const shouldShowAuthFallback =
-    searchParams.get("__spa_path") === "/auth" ||
+    searchParams.get("__spa_path") === "/login" ||
     (searchParams.get("state") === "discord_login" && Boolean(searchParams.get("code")));
 
   useEffect(() => {
@@ -101,10 +101,10 @@ const Index = () => {
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-muted-foreground/70 hover:text-foreground">
+                <Button variant="ghost" size="sm" onClick={() => navigate("/login")} className="text-muted-foreground/70 hover:text-foreground">
                   {t("index.log_in")}
                 </Button>
-                <Button size="sm" onClick={() => navigate("/auth")} className="gap-2">
+                <Button size="sm" onClick={() => navigate("/login")} className="gap-2">
                   {t("index.get_started")} <ArrowRight className="w-4 h-4" />
                 </Button>
               </>
@@ -116,7 +116,7 @@ const Index = () => {
       <main className="relative z-10">
         {/* Hero */}
         <section className="container mx-auto px-6 pt-28 pb-24">
-          <DashboardHero onGetStarted={() => navigate("/auth")} />
+          <DashboardHero onGetStarted={() => navigate("/login")} />
         </section>
 
         {/* Extra Features Grid */}
@@ -211,7 +211,7 @@ const Index = () => {
                 <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                   <Button
                     size="lg"
-                    onClick={() => navigate("/auth")}
+                    onClick={() => navigate("/login")}
                     className="gap-2 px-8 h-12 shadow-lg shadow-primary/20 hover:shadow-primary/35 transition-all group"
                   >
                     Create free account
@@ -220,7 +220,7 @@ const Index = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => navigate("/auth")}
+                    onClick={() => navigate("/login")}
                     className="gap-2 px-8 h-12 border-border/60 hover:bg-secondary/40"
                   >
                     Sign in
