@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getSessionWithTimeout } from '@/lib/authSession';
 
 export interface Badge {
   id: string;
@@ -45,14 +46,14 @@ export const useUserProfile = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchProfile = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return;
 
     const { data: profileData, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', session.user.id)
-      .single();
+      .eq('user_id', session.user.id)
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching profile:', error);
@@ -63,14 +64,24 @@ export const useUserProfile = () => {
   }, []);
 
   const fetchBadges = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return;
 
     // Fetch all badges
-    const { data: allBadges } = await supabase
+    const { data: allBadges, error: badgesError } = await supabase
       .from('badges')
       .select('*')
       .order('rarity', { ascending: true });
+
+    if (badgesError) {
+      if (badgesError.code === '42P01') {
+        setBadges([]);
+        setEarnedBadges([]);
+        return;
+      }
+      console.error('Error fetching badges:', badgesError);
+      return;
+    }
 
     if (allBadges) {
       setBadges(allBadges as Badge[]);
