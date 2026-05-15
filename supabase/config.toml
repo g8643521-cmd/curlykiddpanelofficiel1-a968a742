@@ -1,4 +1,16 @@
 project_id = "dedferassgtoxxctfixg"
 
+[functions.activity-dispatcher]
+verify_jwt = false
+
+[functions.cfx-lookup]
+verify_jwt = false
+
+[functions.cfx-icon]
+verify_jwt = false
+
+[functions.cheater-webhook]
+verify_jwt = false
+
 [functions.screensharex-lookup]
 verify_jwt = false
