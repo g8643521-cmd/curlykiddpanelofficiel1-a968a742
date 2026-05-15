@@ -119,7 +119,10 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
             const profileData: Profile = {
               ...sessionFallback,
               ...data,
-              display_name: data.display_name || sessionFallback.display_name,
+              display_name:
+                (data.display_name && data.display_name.trim() && data.display_name.trim().toLowerCase() !== 'user')
+                  ? data.display_name
+                  : sessionFallback.display_name,
               avatar_url: data.avatar_url || session.user.user_metadata?.avatar_url || null,
             };
             setProfile(profileData);
