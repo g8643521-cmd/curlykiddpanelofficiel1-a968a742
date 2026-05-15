@@ -106,7 +106,8 @@ const Auth = () => {
   const handleDiscordCallback = useCallback(async (code: string) => {
     setDiscordLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/login`;
+      const callbackPath = searchParams.get("discord_redirect_path") || "/login";
+      const redirectUri = `${window.location.origin}${callbackPath.startsWith("/") ? callbackPath : "/login"}`;
       const fnUrl = `/api/public/discord-oauth?action=login_callback`;
       const res = await fetch(fnUrl, {
         method: "POST",
@@ -130,7 +131,7 @@ const Auth = () => {
       setDiscordLoading(false);
       window.history.replaceState({}, "", "/login");
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     let active = true;
