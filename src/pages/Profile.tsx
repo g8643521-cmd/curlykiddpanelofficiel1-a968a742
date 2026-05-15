@@ -111,26 +111,36 @@ const Profile = () => {
 
       const user = session.user;
       await syncCurrentUserProfile().catch(() => null);
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
-        .eq('user_id', user.id)
-        .single();
+      let profile: any = null;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (error) {
+          console.warn('[Profile] profile fetch error', error);
+        } else {
+          profile = data;
+        }
+      } catch (err) {
+        console.warn('[Profile] profile fetch threw', err);
+      }
 
       setUserInfo({
         email: user.email || '',
-        display_name: (profile as any)?.display_name || user.user_metadata?.full_name || null,
-        avatar_url: getProfileAvatarUrl(profile as any) || user.user_metadata?.avatar_url || null,
+        display_name: profile?.display_name || user.user_metadata?.full_name || null,
+        avatar_url: getProfileAvatarUrl(profile) || user.user_metadata?.avatar_url || null,
         created_at: user.created_at,
         last_sign_in_at: user.last_sign_in_at || null,
         provider: user.app_metadata?.provider || 'email',
         user_id: user.id,
-        discord_user_id: (profile as any)?.discord_user_id || null,
-        discord_username: (profile as any)?.discord_username || null,
-        discord_avatar: (profile as any)?.discord_avatar || null,
-        discord_guild_member: (profile as any)?.discord_guild_member ?? null,
-        discord_guild_status: (profile as any)?.discord_guild_status || null,
-        discord_guild_checked_at: (profile as any)?.discord_guild_checked_at || null,
+        discord_user_id: profile?.discord_user_id || null,
+        discord_username: profile?.discord_username || null,
+        discord_avatar: profile?.discord_avatar || null,
+        discord_guild_member: profile?.discord_guild_member ?? null,
+        discord_guild_status: profile?.discord_guild_status || null,
+        discord_guild_checked_at: profile?.discord_guild_checked_at || null,
         email_confirmed_at: user.email_confirmed_at || null,
         phone: user.phone || null,
         updated_at: user.updated_at || null,
@@ -138,12 +148,16 @@ const Profile = () => {
       setIsCheckingAuth(false);
 
       // Fetch Discord invite URL
-      const { data: inviteSetting } = await supabase
-        .from('admin_settings')
-        .select('value')
-        .eq('key', 'social_discord')
-        .single();
-      if (inviteSetting?.value) setDiscordInviteUrl(inviteSetting.value);
+      try {
+        const { data: inviteSetting } = await supabase
+          .from('admin_settings')
+          .select('value')
+          .eq('key', 'social_discord')
+          .maybeSingle();
+        if (inviteSetting?.value) setDiscordInviteUrl(inviteSetting.value);
+      } catch (err) {
+        console.warn('[Profile] invite fetch failed', err);
+      }
     };
 
     checkAuth();

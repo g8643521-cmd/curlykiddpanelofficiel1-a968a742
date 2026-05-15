@@ -10,8 +10,17 @@ export const getDiscordAvatarUrl = (
   return `https://cdn.discordapp.com/avatars/${discordUserId}/${discordAvatar}.${ext}?size=${size}`;
 };
 
-export const getProfileAvatarUrl = (profile: {
-  avatar_url?: string | null;
-  discord_user_id?: string | null;
-  discord_avatar?: string | null;
-}) => profile.avatar_url || getDiscordAvatarUrl(profile.discord_user_id, profile.discord_avatar) || null;
+export const getProfileAvatarUrl = (
+  profile?: {
+    avatar_url?: string | null;
+    discord_user_id?: string | null;
+    discord_avatar?: string | null;
+  } | null,
+) => {
+  if (!profile) return null;
+  return (
+    profile.avatar_url ||
+    getDiscordAvatarUrl(profile.discord_user_id, profile.discord_avatar) ||
+    null
+  );
+};
