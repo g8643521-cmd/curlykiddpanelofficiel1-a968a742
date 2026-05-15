@@ -175,10 +175,14 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
             setAvatarStatus(profileData.avatar_url ? 'loading' : 'missing');
             setBannerStatus(profileData.banner_url ? 'loading' : 'missing');
           } else if (error) {
+            // eslint-disable-next-line no-console
+            console.error('[AppHeader] profile fetch error', error);
+            const err = error as { message?: string; code?: string; details?: string; hint?: string };
+            const parts = [err.code, err.message, err.details, err.hint].filter(Boolean);
             setProfile(sessionFallback);
             setCachedProfile(sessionFallback);
             setFetchState('error');
-            setFetchError(error.message || 'unknown error');
+            setFetchError(parts.join(' · ') || 'unknown error');
             setAvatarStatus(sessionFallback.avatar_url ? 'loading' : 'missing');
             setBannerStatus('missing');
           } else {
@@ -400,6 +404,11 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                 <div className="px-3 pt-2 pb-1 flex flex-wrap items-center gap-1.5 bg-card/60 border-b border-border/30">
                   <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 mr-1">sync</span>
                   <StatusPill label="profile" state={fetchState === 'ok' ? 'ok' : fetchState === 'loading' ? 'loading' : fetchState === 'no-session' ? 'missing' : 'error'} title={fetchError ?? undefined} />
+                  {fetchState === 'error' && fetchError && (
+                    <div className="basis-full mt-1 px-1.5 py-1 rounded text-[10px] text-destructive bg-destructive/10 border border-destructive/30 break-all">
+                      {fetchError}
+                    </div>
+                  )}
                   <StatusPill label="avatar" state={avatarStatus} title={profile?.avatar_url ?? 'no url'} />
                   <StatusPill label="banner" state={bannerStatus} title={profile?.banner_url ?? 'no url'} />
                   <StatusPill label="discord" state={profile?.discord_user_id ? 'ok' : 'missing'} title={profile?.discord_user_id ?? 'not linked'} />
