@@ -367,21 +367,92 @@ const DatabaseExportPanel = () => {
           </div>
         )}
 
+        {Object.keys(tableErrors).length > 0 && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
+                Failing queries — {Object.keys(tableErrors).length} table{Object.keys(tableErrors).length !== 1 ? 's' : ''} could not be counted
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchCounts(tables)}
+                disabled={isLoadingCounts}
+                className="h-8 rounded-lg text-xs font-semibold border-destructive/30 text-destructive hover:bg-destructive/10 gap-1.5"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoadingCounts ? 'animate-spin' : ''}`} />
+                Retry
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              These queries failed or timed out. Total Rows above excludes them — fix the listed tables (RLS, missing column, slow query) and retry.
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-border/30">
+              <table className="w-full text-xs">
+                <thead className="bg-secondary/40 text-muted-foreground">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-semibold">Table</th>
+                    <th className="px-3 py-2 font-semibold">Type</th>
+                    <th className="px-3 py-2 font-semibold">Duration</th>
+                    <th className="px-3 py-2 font-semibold">Error</th>
+                    <th className="px-3 py-2 font-semibold">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(tableErrors).map(([table, info]) => (
+                    <tr key={table} className="border-t border-border/20">
+                      <td className="px-3 py-2 font-mono text-foreground">{table}</td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                          info.type === 'timeout'
+                            ? 'bg-amber-500/15 text-amber-500'
+                            : 'bg-destructive/15 text-destructive'
+                        }`}>
+                          {info.type === 'timeout' ? <TimerOff className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                          {info.type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-muted-foreground">{info.durationMs} ms</td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-foreground/80 break-all">{info.message}</td>
+                      <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{new Date(info.at).toLocaleTimeString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-xl bg-secondary/20 border border-border/20 p-4">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">
             Included Tables ({tables.length})
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-            {tables.map((t) => (
-              <div key={t} className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-2">
-                <span className="text-[11px] font-mono text-muted-foreground truncate">{t}</span>
-                {tableCounts[t] !== undefined && (
-                  <span className="text-[10px] font-semibold text-foreground/60 ml-2 shrink-0">
-                    {tableCounts[t]}
-                  </span>
-                )}
-              </div>
-            ))}
+            {tables.map((t) => {
+              const err = tableErrors[t];
+              return (
+                <div
+                  key={t}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                    err ? 'bg-destructive/10 border border-destructive/30' : 'bg-secondary/40'
+                  }`}
+                  title={err ? `${err.type.toUpperCase()}: ${err.message}` : undefined}
+                >
+                  <span className="text-[11px] font-mono text-muted-foreground truncate">{t}</span>
+                  {err ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-destructive ml-2 shrink-0">
+                      {err.type === 'timeout' ? <TimerOff className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                      {err.type === 'timeout' ? 'TIMEOUT' : 'FAIL'}
+                    </span>
+                  ) : tableCounts[t] !== undefined ? (
+                    <span className="text-[10px] font-semibold text-foreground/60 ml-2 shrink-0">
+                      {tableCounts[t]}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
