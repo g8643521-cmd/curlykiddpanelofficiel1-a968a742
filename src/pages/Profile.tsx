@@ -193,6 +193,10 @@ const Profile = () => {
           discord_user_id: discord.id,
           discord_username: discord.username,
           discord_avatar: discord.avatar,
+          avatar_url: discord.avatar || prev.avatar_url,
+          discord_guild_member: data.guild_member ?? data.joined_guild ?? prev.discord_guild_member,
+          discord_guild_status: data.guild_status || prev.discord_guild_status,
+          discord_guild_checked_at: new Date().toISOString(),
         } : prev);
         const joinMsg = data.joined_guild ? ' & joined Discord server!' : '';
         toast.success(`Discord linked: ${discord.username}${joinMsg}`);
@@ -279,6 +283,34 @@ const Profile = () => {
       }
     } catch {
       toast.error('Could not unlink Discord');
+    } finally {
+      setIsLinkingDiscord(false);
+    }
+  };
+
+  const refreshDiscordMembership = async () => {
+    setIsLinkingDiscord(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch('/api/public/discord-oauth?action=membership', {
+        method: 'POST',
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Could not check Discord membership');
+      setUserInfo(prev => prev ? {
+        ...prev,
+        discord_guild_member: data.member,
+        discord_guild_status: data.status,
+        discord_guild_checked_at: new Date().toISOString(),
+      } : prev);
+      toast.success(data.member ? 'Discord membership verified' : 'Discord membership not found');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not check Discord membership');
     } finally {
       setIsLinkingDiscord(false);
     }
