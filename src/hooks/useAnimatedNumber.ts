@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 export function useAnimatedNumber(target: number, baseDuration = 500): number {
   const [display, setDisplay] = useState(Math.round(target));
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | undefined>(undefined);
   const currentRef = useRef(Math.round(target));
 
   useEffect(() => {

@@ -37,7 +37,7 @@ export const useFriendSystem = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Debounce refs
-  const fetchTimeoutRef = useRef<NodeJS.Timeout>();
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const lastFetchRef = useRef<number>(0);
   const isMountedRef = useRef(true);
 
