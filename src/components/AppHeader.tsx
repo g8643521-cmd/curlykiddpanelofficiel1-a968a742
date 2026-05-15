@@ -18,11 +18,15 @@ import { useI18n } from '@/lib/i18n';
 import { useScanStore } from '@/stores/scanStore';
 import { logActivity } from '@/lib/activityLog';
 import { getSessionWithTimeout } from '@/lib/authSession';
+import { getProfileAvatarUrl } from '@/lib/avatar';
+import { syncCurrentUserProfile } from '@/lib/profileSync';
 
 interface Profile {
   display_name: string | null;
   role: string | null;
   avatar_url: string | null;
+  discord_user_id?: string | null;
+  discord_avatar?: string | null;
   banner_url: string | null;
   email: string | null;
   created_at: string | null;
@@ -109,9 +113,10 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
       } else if (!profile) {
         setProfile(sessionFallback);
       }
+      void syncCurrentUserProfile().catch(() => null);
       supabase
         .from('profiles')
-        .select('display_name, role, avatar_url, banner_url')
+        .select('display_name, role, avatar_url, discord_user_id, discord_avatar, banner_url')
         .eq('user_id', session.user.id)
         .maybeSingle()
         .then(({ data, error }) => {
@@ -123,7 +128,7 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                 (data.display_name && data.display_name.trim() && data.display_name.trim().toLowerCase() !== 'user')
                   ? data.display_name
                   : sessionFallback.display_name,
-              avatar_url: data.avatar_url || session.user.user_metadata?.avatar_url || null,
+              avatar_url: getProfileAvatarUrl(data) || session.user.user_metadata?.avatar_url || null,
             };
             setProfile(profileData);
             setCachedProfile(profileData);
