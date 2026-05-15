@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, User, ArrowRight, Chrome, ArrowLeft, Loader2, Shield, Zap, Database, Users, CheckCircle2, Sparkles, Star, TrendingUp, Activity, Quote, Lock as LockIcon } from "lucide-react";
@@ -48,6 +48,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const processedDiscordCode = useRef<string | null>(null);
 
   // Visibility flags loaded from admin_settings (Discord-only by default)
   const [isReturning] = useState(() => {
@@ -139,7 +140,10 @@ const Auth = () => {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     if (code && state === "discord_login") {
-      handleDiscordCallback(code);
+      if (processedDiscordCode.current !== code) {
+        processedDiscordCode.current = code;
+        handleDiscordCallback(code);
+      }
       return () => { active = false; };
     }
 
