@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { getSessionWithTimeout, withTimeout } from "@/lib/authSession";
 
 const KEYS = [
   { key: "auth_show_discord", label: "Discord", description: "Primary recommended login. Uses Discord OAuth.", accent: "#5865F2" },
@@ -34,22 +35,35 @@ const AuthMethodsPanel = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    let active = true;
     (async () => {
-      const { data } = await supabase
-        .from("admin_settings")
-        .select("key,value")
-        .in("key", KEYS.map((k) => k.key));
-      if (data) {
+      try {
+        const { data: { session } } = await getSessionWithTimeout();
+        if (!session) throw new Error("Not signed in");
+        const { data, error } = await withTimeout<any>(
+          supabase
+            .from("admin_settings")
+            .select("key,value")
+            .in("key", KEYS.map((k) => k.key)),
+          10000,
+          "Loading login methods timed out",
+        );
+        if (error) throw error;
+        if (!active) return;
         setValues((prev) => {
           const next = { ...prev };
-          for (const row of data as Array<{ key: string; value: unknown }>) {
+          for (const row of (data || []) as Array<{ key: string; value: unknown }>) {
             next[row.key] = parseBool(row.value, prev[row.key] ?? false);
           }
           return next;
         });
+      } catch (err: any) {
+        if (active) toast.error(err?.message || "Failed to load login methods");
+      } finally {
+        if (active) setLoading(false);
       }
-      setLoading(false);
     })();
+    return () => { active = false; };
   }, []);
 
   const toggle = (key: string) => setValues((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -58,7 +72,13 @@ const AuthMethodsPanel = () => {
     setSaving(true);
     try {
       const rows = KEYS.map((k) => ({ key: k.key, value: values[k.key] ? "true" : "false" }));
-      const { error } = await supabase.from("admin_settings").upsert(rows, { onConflict: "key" });
+      const { data: { session } } = await getSessionWithTimeout();
+      if (!session) throw new Error("Not signed in");
+      const { error } = await withTimeout<any>(
+        supabase.from("admin_settings").upsert(rows, { onConflict: "key" }),
+        12000,
+        "Saving login methods timed out",
+      );
       if (error) throw error;
       toast.success("Login methods updated");
     } catch (err: any) {
