@@ -51,7 +51,7 @@ export function useDirectMessages(friendId?: string) {
   const [isSending, setIsSending] = useState(false);
   
   // Refs for debouncing and preventing stale closures
-  const fetchTimeoutRef = useRef<NodeJS.Timeout>();
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const lastFetchRef = useRef<number>(0);
   const friendIdRef = useRef(friendId);
   friendIdRef.current = friendId;
