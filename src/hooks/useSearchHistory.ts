@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuthReady } from "@/hooks/useAuthReady";
 
 export interface SearchHistoryItem {
   id: string;
@@ -9,13 +10,14 @@ export interface SearchHistoryItem {
 }
 
 export const useSearchHistory = () => {
+  const { user, isReady, isAuthenticated } = useAuthReady();
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchHistory = useCallback(async () => {
+    if (!isReady) return;
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) {
+      if (!isAuthenticated || !user) {
         setHistory([]);
         setIsLoading(false);
         return;
@@ -24,7 +26,7 @@ export const useSearchHistory = () => {
       const { data, error } = await supabase
         .from('search_history')
         .select('*')
-        .eq('user_id', session.session.user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -35,11 +37,11 @@ export const useSearchHistory = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, isReady, user]);
 
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    if (isReady) fetchHistory();
+  }, [fetchHistory, isReady]);
 
   const clearHistory = async () => {
     try {

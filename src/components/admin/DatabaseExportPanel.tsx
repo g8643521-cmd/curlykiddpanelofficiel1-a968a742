@@ -3,6 +3,7 @@ import { Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCi
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useAuthReady } from '@/hooks/useAuthReady';
 
 const FALLBACK_TABLES = [
   'admin_settings', 'audit_log', 'bot_detected_cheaters', 'bot_server_settings',
@@ -13,6 +14,7 @@ const FALLBACK_TABLES = [
 ];
 
 const DatabaseExportPanel = () => {
+  const { isReady, isAuthenticated } = useAuthReady();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [format, setFormat] = useState<'json' | 'csv'>('json');
@@ -24,6 +26,12 @@ const DatabaseExportPanel = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!isReady) return;
+    if (!isAuthenticated) {
+      setIsLoadingTables(false);
+      return;
+    }
+
     const fetchTables = async () => {
       try {
         const { data, error } = await supabase.rpc('get_public_tables');
@@ -37,7 +45,7 @@ const DatabaseExportPanel = () => {
       setIsLoadingTables(false);
     };
     fetchTables();
-  }, []);
+  }, [isAuthenticated, isReady]);
 
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
@@ -79,8 +87,8 @@ const DatabaseExportPanel = () => {
   }, []);
 
   useEffect(() => {
-    if (!isLoadingTables) fetchCounts(tables);
-  }, [tables, isLoadingTables, fetchCounts]);
+    if (isReady && isAuthenticated && !isLoadingTables) fetchCounts(tables);
+  }, [tables, isLoadingTables, fetchCounts, isAuthenticated, isReady]);
 
   const totalRows = Object.values(tableCounts).reduce((a, b) => a + b, 0);
 

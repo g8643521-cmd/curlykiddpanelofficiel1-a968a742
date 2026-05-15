@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getSessionWithTimeout } from '@/lib/authSession';
 
 export interface Badge {
   id: string;
@@ -45,14 +46,14 @@ export const useUserProfile = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchProfile = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return;
 
     const { data: profileData, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', session.user.id)
-      .single();
+      .eq('user_id', session.user.id)
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching profile:', error);
@@ -63,14 +64,24 @@ export const useUserProfile = () => {
   }, []);
 
   const fetchBadges = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return;
 
     // Fetch all badges
-    const { data: allBadges } = await supabase
+    const { data: allBadges, error: badgesError } = await supabase
       .from('badges')
       .select('*')
       .order('rarity', { ascending: true });
+
+    if (badgesError) {
+      if (badgesError.code === '42P01') {
+        setBadges([]);
+        setEarnedBadges([]);
+        return;
+      }
+      console.error('Error fetching badges:', badgesError);
+      return;
+    }
 
     if (allBadges) {
       setBadges(allBadges as Badge[]);
@@ -96,7 +107,7 @@ export const useUserProfile = () => {
   }, []);
 
   const uploadAvatar = async (file: File): Promise<string | null> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return null;
 
     setIsUploading(true);
@@ -124,7 +135,7 @@ export const useUserProfile = () => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: `${publicUrl}?t=${Date.now()}` })
-        .eq('id', session.user.id);
+        .eq('user_id', session.user.id);
 
       if (updateError) {
         console.error('Update error:', updateError);
@@ -139,13 +150,13 @@ export const useUserProfile = () => {
   };
 
   const updateDisplayName = async (name: string): Promise<boolean> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return false;
 
     const { error } = await supabase
       .from('profiles')
       .update({ display_name: name })
-      .eq('id', session.user.id);
+      .eq('user_id', session.user.id);
 
     if (error) {
       console.error('Error updating display name:', error);
@@ -157,7 +168,7 @@ export const useUserProfile = () => {
   };
 
   const addXp = async (amount: number): Promise<{ leveledUp: boolean; newLevel: number }> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session || !profile) return { leveledUp: false, newLevel: profile?.level || 1 };
 
     // @ts-ignore - rpc function not in generated types yet
@@ -178,7 +189,7 @@ export const useUserProfile = () => {
 
 
   const awardBadge = async (badgeName: string): Promise<boolean> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSessionWithTimeout();
     if (!session) return false;
 
     // Find badge by name

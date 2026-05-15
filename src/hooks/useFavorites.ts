@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { GamificationService } from "@/services/gamificationService";
+import { useAuthReady } from "@/hooks/useAuthReady";
 
 export interface Favorite {
   id: string;
@@ -13,13 +14,14 @@ export interface Favorite {
 
 
 export const useFavorites = () => {
+  const { user, isReady, isAuthenticated } = useAuthReady();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchFavorites = useCallback(async () => {
+    if (!isReady) return;
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) {
+      if (!isAuthenticated || !user) {
         setFavorites([]);
         setIsLoading(false);
         return;
@@ -28,7 +30,7 @@ export const useFavorites = () => {
       const { data, error } = await supabase
         .from('server_favorites')
         .select('*')
-        .eq('user_id', session.session.user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -38,11 +40,11 @@ export const useFavorites = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, isReady, user]);
 
   useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
+    if (isReady) fetchFavorites();
+  }, [fetchFavorites, isReady]);
 
   const addFavorite = async (serverCode: string, serverName: string | null) => {
     try {

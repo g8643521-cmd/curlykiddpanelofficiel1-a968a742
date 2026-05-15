@@ -3,6 +3,7 @@ import { ShieldAlert, Lock, LogOut, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { getSessionWithTimeout } from '@/lib/authSession';
 
 type ProfileStatus = {
   status: string | null;
@@ -21,7 +22,7 @@ export default function AccountStatusGuard({ children }: { children: React.React
     let active = true;
 
     const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSessionWithTimeout();
       if (!session) {
         if (active) { setProfile(null); setLoading(false); }
         return;
@@ -43,7 +44,7 @@ export default function AccountStatusGuard({ children }: { children: React.React
 
     // Realtime: react instantly when admin changes status
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    getSessionWithTimeout().then(({ data: { session } }) => {
       if (!session || !active) return;
       const realtimeChannel = supabase.channel(`profile_status:${session.user.id}:${Date.now()}:${Math.random()}`);
 
