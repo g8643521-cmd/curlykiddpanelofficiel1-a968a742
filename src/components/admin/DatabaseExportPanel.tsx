@@ -20,6 +20,7 @@ const DatabaseExportPanel = () => {
   const [tables, setTables] = useState<string[]>(FALLBACK_TABLES);
   const [isLoadingTables, setIsLoadingTables] = useState(true);
   const [tableCounts, setTableCounts] = useState<Record<string, number>>({});
+  const [tableErrors, setTableErrors] = useState<Record<string, { type: 'timeout' | 'error'; message: string; durationMs: number; at: string }>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
