@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import SiteBackground from "@/components/SiteBackground";
 import { usePageViewLogger, installGlobalErrorLogger } from "@/lib/usePageViewLogger";
+import { syncCurrentUserProfile } from "@/lib/profileSync";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
@@ -128,6 +129,9 @@ const AppRoutes = () => {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') && session?.user) {
+        void syncCurrentUserProfile().catch((error) => console.warn('Profile sync failed:', error));
+      }
       dispatchSignupWebhook(event, session);
     });
 
