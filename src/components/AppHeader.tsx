@@ -40,10 +40,12 @@ interface AppHeaderProps {
   onLogoClick?: () => void;
 }
 
-const PROFILE_CACHE_KEY = 'ckp_profile_cache';
+const PROFILE_CACHE_KEY = 'ckp_profile_cache_v2';
 
 const getCachedProfile = (): Profile | null => {
   try {
+    // Drop legacy cache entries that may be missing newer fields
+    sessionStorage.removeItem('ckp_profile_cache');
     const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
     return cached ? JSON.parse(cached) : null;
   } catch {
