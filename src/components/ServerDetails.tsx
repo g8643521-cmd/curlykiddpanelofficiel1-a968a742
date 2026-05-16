@@ -580,10 +580,6 @@ const ServerDetails = ({
         </div>
       )}
 
-      {/* Ping Distribution Chart */}
-      {showPingDistribution && data.players.length > 0 && (
-        <PingDistributionChart players={data.players} />
-      )}
 
 
       {/* Online Players - Full Width */}
