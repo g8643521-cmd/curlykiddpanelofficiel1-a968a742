@@ -20,6 +20,8 @@ import { logActivity } from '@/lib/activityLog';
 import { getSessionWithTimeout } from '@/lib/authSession';
 import { getProfileAvatarUrl } from '@/lib/avatar';
 import { syncCurrentUserProfile } from '@/lib/profileSync';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { runAsync } from '@/lib/asyncRequest';
 
 interface Profile {
   display_name: string | null;
