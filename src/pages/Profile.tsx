@@ -106,29 +106,46 @@ const Profile = () => {
   usePresence();
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      setAuthError(null);
+      const sessionOutcome = await runAsync(
+        async () => (await supabase.auth.getSession()).data.session,
+        { timeoutMs: 5000, signal: controller.signal, label: 'Profile:getSession' },
+      );
+      if (cancelled) return;
+      if (!sessionOutcome.ok) {
+        setAuthError(sessionOutcome.error.message);
+        setIsCheckingAuth(false);
+        return;
+      }
+      const session = sessionOutcome.data;
       if (!session) {
         navigate('/login');
         return;
       }
-
       const user = session.user;
-      await syncCurrentUserProfile().catch(() => null);
-      let profile: any = null;
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (error) {
-          console.warn('[Profile] profile fetch error', error);
-        } else {
-          profile = data;
-        }
-      } catch (err) {
-        console.warn('[Profile] profile fetch threw', err);
+      void syncCurrentUserProfile().catch(() => null);
+
+      const profileOutcome = await runAsync(
+        async (signal) => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
+            .eq('user_id', user.id)
+            .abortSignal(signal)
+            .maybeSingle();
+          if (error) throw new Error(error.message);
+          return data;
+        },
+        { timeoutMs: 6000, signal: controller.signal, label: 'Profile:fetchProfile' },
+      );
+      if (cancelled) return;
+      const profile: any = profileOutcome.ok ? profileOutcome.data : null;
+      if (!profileOutcome.ok) {
+        console.warn('[Profile] profile fetch failed', profileOutcome.error);
       }
 
       setUserInfo({
@@ -151,26 +168,34 @@ const Profile = () => {
       });
       setIsCheckingAuth(false);
 
-      // Fetch Discord invite URL
-      try {
-        const { data: inviteSetting } = await supabase
-          .from('admin_settings')
-          .select('value')
-          .eq('key', 'social_discord')
-          .maybeSingle();
-        if (inviteSetting?.value) setDiscordInviteUrl(inviteSetting.value);
-      } catch (err) {
-        console.warn('[Profile] invite fetch failed', err);
-      }
+      // Non-critical — fire-and-forget with timeout.
+      void runAsync(
+        async (signal) => {
+          const { data } = await supabase
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'social_discord')
+            .abortSignal(signal)
+            .maybeSingle();
+          return data?.value as string | null | undefined;
+        },
+        { timeoutMs: 4000, signal: controller.signal, label: 'Profile:discordInvite' },
+      ).then((res) => {
+        if (!cancelled && res.ok && res.data) setDiscordInviteUrl(res.data);
+      });
     };
 
-    checkAuth();
+    void checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       if (!session) navigate('/login');
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   // Handle Discord OAuth callback
