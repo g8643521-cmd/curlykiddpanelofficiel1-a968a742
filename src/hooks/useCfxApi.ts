@@ -241,9 +241,19 @@ export const useCfxApi = () => {
       // Refine location using IP geolocation if we have an IP.
       // This is optional and safe to fail.
       if (data.ip) {
-        supabase.functions
-          .invoke('ip-geo', { body: { ip: data.ip } })
+        runAsync(
+          async (signal) => {
+            const { data: geoData } = await supabase.functions.invoke('ip-geo', {
+              body: { ip: data.ip },
+              signal,
+              timeout: 5000,
+            });
+            return geoData;
+          },
+          { timeoutMs: 5000, retries: 0, signal: controller.signal, scope: "server-lookup", label: "ip-geo" },
+        )
           .then(({ data: geoData }) => {
+            if (!isCurrentRequest()) return;
             if (!geoData || geoData.error) return;
             // ipapi.co fields: country_name, region, city, org, asn
             const country = geoData.country_name || geoData.country || undefined;
@@ -273,6 +283,7 @@ export const useCfxApi = () => {
       if (!isRefresh) {
         try {
           const { data: session } = await supabase.auth.getSession();
+          if (!isCurrentRequest()) return;
           if (session?.session?.user) {
             const userId = session.session.user.id;
             
@@ -282,16 +293,19 @@ export const useCfxApi = () => {
               .from('search_history')
               .delete()
               .eq('user_id', userId)
-              .eq('query', serverCode);
+              .eq('query', serverCode)
+              .abortSignal(controller.signal);
+            if (!isCurrentRequest()) return;
             
             await supabase.from('search_history').insert({
               user_id: userId,
               query: serverCode,
               search_type: serverInfo.hostname || 'server',
-            });
+            }).abortSignal(controller.signal);
+            if (!isCurrentRequest()) return;
             
             // Trigger gamification
-            GamificationService.onSearch();
+            void GamificationService.onSearch(controller.signal);
           }
         } catch (historyError) {
           console.log("Could not save to history:", historyError);
@@ -299,6 +313,7 @@ export const useCfxApi = () => {
       }
 
     } catch (err) {
+      if (!isCurrentRequest() && err instanceof AsyncRequestError && err.kind === "aborted") return;
       // AsyncRequestError already carries a friendly message + kind.
       const isAsyncErr = err instanceof AsyncRequestError;
       const raw = err instanceof Error ? err.message : "Failed to fetch server data";
@@ -319,18 +334,25 @@ export const useCfxApi = () => {
       }
     } finally {
       // GUARANTEE the loading state always resolves.
-      setIsLoading(false);
+      if (isCurrentRequest() || abortControllerRef.current === controller) {
+        setIsLoading(false);
+        if (abortControllerRef.current === controller) abortControllerRef.current = null;
+      }
     }
   }, [serverData, t]);
 
   // Abort any in-flight lookup when the hook unmounts.
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       abortControllerRef.current?.abort();
+      cancelAsyncScope("server-lookup");
     };
   }, []);
 
   const clearData = useCallback(() => {
+    abortControllerRef.current?.abort();
+    cancelAsyncScope("server-lookup");
     setServerData(null);
     setError(null);
     setErrorDetails(null);
