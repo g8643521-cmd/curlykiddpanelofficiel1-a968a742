@@ -36,6 +36,7 @@ const Profile = () => {
   const [searchParams] = useSearchParams();
   const { t } = useI18n();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<{
     email: string;
     display_name: string | null;
