@@ -115,10 +115,9 @@ const ServerDetails = ({
   const { getVisibility, isLoading: settingsLoading } = useSystemSettings();
   const { isEnabled: streamerMode } = useStreamerMode();
   
-  // Check settings visibility - respect the setting for all users
-  // While settings are loading, default to false to prevent flash
-  // 'all' = visible to everyone, 'admin' = admin only, 'disabled' = hidden for everyone
-  const showPingDistribution = !settingsLoading && (getVisibility('show_ping_distribution') === 'all' || (isAdmin && getVisibility('show_ping_distribution') === 'admin'));
+  // Settings visibility hook retained for other potential gated UI
+  void settingsLoading;
+  void getVisibility;
   // Use the passed server code, or extract from license key token as fallback
   const serverCode = propServerCode || data.licenseKeyToken?.split("_")[0] || null;
   const { iconUrl, iconLoading, iconError } = useServerIcon(propServerCode, data.iconVersion);
