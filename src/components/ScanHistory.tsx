@@ -308,19 +308,29 @@ export default function ScanHistory({
 
   const fetchHistory = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    setLoadError(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (userId) await claimImportedDataForCurrentUser(userId);
+    const outcome = await runAsync(async (signal) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user.id;
+      if (userId) await claimImportedDataForCurrentUser(userId);
 
-    let query = supabase
-      .from('scan_history')
-      .select('*')
-      .order('finished_at', { ascending: false })
-      .limit(guildIdFilter ? 100 : 25);
-    if (guildIdFilter) query = query.eq('guild_id', guildIdFilter);
-    const { data } = await query;
-    if (data) setScans(dedupeScans((data as ScanRecord[]).filter(isVisibleHistoryScan)));
+      let query = supabase
+        .from('scan_history')
+        .select('*')
+        .order('finished_at', { ascending: false })
+        .limit(guildIdFilter ? 100 : 25);
+      if (guildIdFilter) query = query.eq('guild_id', guildIdFilter);
+      const { data, error } = await query.abortSignal(signal);
+      if (error) throw new Error(error.message);
+      return data as ScanRecord[] | null;
+    }, { timeoutMs: 8000, label: 'ScanHistory:fetch' });
+
+    if (outcome.ok) {
+      if (outcome.data) setScans(dedupeScans(outcome.data.filter(isVisibleHistoryScan)));
+    } else {
+      setLoadError(outcome.error.message);
+    }
     setLoading(false);
     setRefreshing(false);
   }, [guildIdFilter]);
