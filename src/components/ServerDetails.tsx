@@ -772,9 +772,6 @@ const ServerDetails = ({
       )}
 
 
-      {/* Embed Widget */}
-      <EmbedCodeGenerator serverCode={serverCode} />
-
     </div>
   );
 };
