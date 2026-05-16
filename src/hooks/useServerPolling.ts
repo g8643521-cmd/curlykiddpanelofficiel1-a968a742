@@ -185,7 +185,6 @@ export const useServerPolling = ({
       abortRef.current?.abort();
       cancelAsyncScope("server-polling");
       pollingRef.current = false;
-      setIsPolling(false);
     };
   }, [enabled, interval, pollServers]);
 
