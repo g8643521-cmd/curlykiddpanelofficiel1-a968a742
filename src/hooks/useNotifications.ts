@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuthReady } from "@/hooks/useAuthReady";
+import { runAsync } from "@/lib/asyncRequest";
 
 export interface NotificationSetting {
   id: string;
@@ -17,6 +18,8 @@ export const useNotifications = () => {
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     // Check notification permission
@@ -43,6 +46,10 @@ export const useNotifications = () => {
 
   const fetchSettings = useCallback(async () => {
     if (!isReady) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestSeqRef.current;
     try {
       if (!isAuthenticated || !user) {
         setSettings([]);
@@ -50,22 +57,29 @@ export const useNotifications = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('notification_settings')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const outcome = await runAsync(async (signal) => {
+        const { data, error } = await supabase
+          .from('notification_settings')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .abortSignal(signal);
+        if (error) throw error;
+        return data || [];
+      }, { timeoutMs: 7000, retries: 0, signal: controller.signal, label: 'notification-settings' });
 
-      if (error) throw error;
-      setSettings(data || []);
+      if (requestSeqRef.current !== requestId || controller.signal.aborted) return;
+      if (!outcome.ok) throw outcome.error;
+      setSettings(outcome.data);
     } catch (err) {
       console.error("Error fetching notification settings:", err);
     } finally {
-      setIsLoading(false);
+      if (requestSeqRef.current === requestId) setIsLoading(false);
     }
   }, [isAuthenticated, isReady, user]);
 
   useEffect(() => {
     if (isReady) fetchSettings();
+    return () => abortRef.current?.abort();
   }, [fetchSettings, isReady]);
 
   const addNotification = async (

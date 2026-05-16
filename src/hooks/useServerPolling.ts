@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { ServerData } from "@/hooks/useCfxApi";
+import { runAsync, cancelAsyncScope } from "@/lib/asyncRequest";
 
 interface ServerStatus {
   serverCode: string;
@@ -38,6 +39,9 @@ export const useServerPolling = ({
   const [isPolling, setIsPolling] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const previousStatuses = useRef<Map<string, ServerStatus>>(new Map());
+  const pollingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
   
   // Stabilize references to avoid infinite loops
   const serverCodesRef = useRef<string[]>(serverCodes);
@@ -58,12 +62,22 @@ export const useServerPolling = ({
   }, [onNotification]);
 
   const fetchServerStatus = useCallback(async (serverCode: string): Promise<ServerStatus | null> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('cfx-lookup', {
-        body: { serverCode, skipWebhook: true }
-      });
+    const outcome = await runAsync(
+      async (signal) => {
+        const { data, error } = await supabase.functions.invoke('cfx-lookup', {
+          body: { serverCode, skipWebhook: true },
+          signal,
+          timeout: 8000,
+        });
+        if (error) throw error;
+        return data;
+      },
+      { timeoutMs: 8000, retries: 0, signal: abortRef.current?.signal, scope: "server-polling", label: "server-polling" },
+    );
 
-      if (error || data.error) {
+    try {
+      const data = outcome.ok ? outcome.data : null;
+      if (!data || data.error) {
         return {
           serverCode,
           serverName: 'Unknown',
@@ -119,9 +133,13 @@ export const useServerPolling = ({
   }, []);
 
   const pollServers = useCallback(async () => {
+    if (pollingRef.current) return;
     const codes = serverCodesRef.current;
     if (codes.length === 0) return;
 
+    pollingRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
     setIsPolling(true);
     const newStatuses = new Map<string, ServerStatus>();
 
@@ -133,6 +151,7 @@ export const useServerPolling = ({
 
     for (const chunk of chunks) {
       const results = await Promise.all(chunk.map(fetchServerStatus));
+      if (!mountedRef.current || abortRef.current?.signal.aborted) break;
       results.forEach((status) => {
         if (status) {
           const oldStatus = previousStatuses.current.get(status.serverCode);
@@ -142,13 +161,17 @@ export const useServerPolling = ({
       });
     }
 
-    previousStatuses.current = newStatuses;
-    setServerStatuses(newStatuses);
-    setLastUpdate(new Date());
-    setIsPolling(false);
+    if (mountedRef.current && !abortRef.current?.signal.aborted) {
+      previousStatuses.current = newStatuses;
+      setServerStatuses(newStatuses);
+      setLastUpdate(new Date());
+    }
+    if (mountedRef.current) setIsPolling(false);
+    pollingRef.current = false;
   }, [fetchServerStatus, checkAndNotify]);
 
   useEffect(() => {
+    mountedRef.current = true;
     if (!enabled || serverCodesRef.current.length === 0) return;
 
     // Initial poll
@@ -157,8 +180,21 @@ export const useServerPolling = ({
     // Set up interval
     const intervalId = setInterval(pollServers, interval);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      abortRef.current?.abort();
+      cancelAsyncScope("server-polling");
+      pollingRef.current = false;
+    };
   }, [enabled, interval, pollServers]);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort();
+      cancelAsyncScope("server-polling");
+    };
+  }, []);
 
   const manualRefresh = () => {
     pollServers();

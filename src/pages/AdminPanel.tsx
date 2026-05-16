@@ -38,6 +38,7 @@ import ManagedImagePanel from '@/components/admin/ManagedImagePanel';
 import SystemStatusPanel from '@/components/admin/SystemStatusPanel';
 import AuthMethodsPanel from '@/components/admin/AuthMethodsPanel';
 import { toast } from 'sonner';
+import { runAsync } from '@/lib/asyncRequest';
 import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput,
   CommandItem, CommandList, CommandSeparator,
@@ -110,6 +111,8 @@ const AdminPanel = () => {
     try { return JSON.parse(localStorage.getItem('admin:pinned') || '[]'); } catch { return []; }
   });
   const [now, setNow] = useState(new Date());
+  const abortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000);
@@ -149,45 +152,49 @@ const AdminPanel = () => {
 
   useEffect(() => {
     if (isAdmin) fetchData();
+    return () => abortRef.current?.abort();
   }, [isAdmin]);
 
   const fetchData = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestSeqRef.current;
     setIsLoading(true);
     try {
-      await fetchStats();
+      await fetchStats(controller.signal, requestId);
     } catch (err) {
       console.error('[AdminPanel] fetchStats failed:', err);
     } finally {
-      setIsLoading(false);
+      if (requestSeqRef.current === requestId && !controller.signal.aborted) setIsLoading(false);
     }
   };
 
-  const safeQuery = async <T,>(p: Promise<T>, label: string, fallback: T): Promise<T> => {
+  const safeQuery = async <T,>(query: (signal: AbortSignal) => Promise<T>, label: string, fallback: T, signal: AbortSignal): Promise<T> => {
     try {
-      const result = await Promise.race([
-        p,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
-      ]);
-      return result;
+      const outcome = await runAsync((scopedSignal) => query(scopedSignal), { timeoutMs: 8000, retries: 0, signal, label: `admin:${label}` });
+      return outcome.ok ? outcome.data : fallback;
     } catch (err) {
       console.error(`[AdminPanel] ${label} failed:`, err);
       return fallback;
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (signal: AbortSignal, requestId: number) => {
     const { data: { session } } = await getSessionWithTimeout();
+    if (signal.aborted || requestSeqRef.current !== requestId) return;
     if (!session) {
       setStats({ totalUsers: 0, totalAdmins: 0, totalModerators: 0, totalCheaterReports: 0, recentActivity: [] });
       return;
     }
 
     const [usersCount, cheatersCount, rolesData, recentAudit] = await Promise.all([
-      safeQuery(supabase.from('profiles').select('id', { count: 'exact', head: true }), 'profiles count', { count: 0, error: null } as any),
-      safeQuery(supabase.from('cheater_reports').select('id', { count: 'exact', head: true }), 'cheaters count', { count: 0, error: null } as any),
-      safeQuery(supabase.from('user_roles').select('role'), 'roles', { data: [], error: null } as any),
-      safeQuery(supabase.from('audit_log').select('action, table_name, created_at, user_id').order('created_at', { ascending: false }).limit(8), 'audit_log', { data: [], error: null } as any),
+      safeQuery((s) => supabase.from('profiles').select('id', { count: 'exact', head: true }).abortSignal(s), 'profiles count', { count: 0, error: null } as any, signal),
+      safeQuery((s) => supabase.from('cheater_reports').select('id', { count: 'exact', head: true }).abortSignal(s), 'cheaters count', { count: 0, error: null } as any, signal),
+      safeQuery((s) => supabase.from('user_roles').select('role').abortSignal(s), 'roles', { data: [], error: null } as any, signal),
+      safeQuery((s) => supabase.from('audit_log').select('action, table_name, created_at, user_id').order('created_at', { ascending: false }).limit(8).abortSignal(s), 'audit_log', { data: [], error: null } as any, signal),
     ]);
+    if (signal.aborted || requestSeqRef.current !== requestId) return;
     if ((recentAudit as any).error) {
       console.error('[AdminPanel] audit_log fetch error:', (recentAudit as any).error);
     }

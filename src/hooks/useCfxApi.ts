@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { GamificationService } from "@/services/gamificationService";
 import { prefetchServerIcon } from "@/hooks/useServerIcon";
 import { useI18n } from "@/lib/i18n";
-import { runAsync, AsyncRequestError } from "@/lib/asyncRequest";
+import { runAsync, AsyncRequestError, cancelAsyncScope } from "@/lib/asyncRequest";
 
 // In-memory cache for server data to reduce API calls
 const serverCache = new Map<string, { data: ServerData; timestamp: number }>();
@@ -93,6 +93,8 @@ export const useCfxApi = () => {
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [lastSearchedCode, setLastSearchedCode] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const extractServerCode = (input: string): string => {
     // Handle full URL: https://cfx.re/join/abc123
@@ -108,16 +110,19 @@ export const useCfxApi = () => {
   };
 
   const fetchServerData = useCallback(async (query: string, forceRefresh = false) => {
-    // Cancel any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    // Hard-cancel any pending lookup + its related background work.
+    abortControllerRef.current?.abort();
+    cancelAsyncScope("server-lookup");
+    const requestId = ++requestSeqRef.current;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const isCurrentRequest = () => mountedRef.current && requestSeqRef.current === requestId && !controller.signal.aborted;
     
     const serverCode = extractServerCode(query);
     setLastSearchedCode(serverCode);
 
     if (!serverCode || serverCode.length < 2) {
+      abortControllerRef.current = null;
       setError(t("lookup.invalid_code"));
       setErrorDetails(null);
       setLastSearchedCode(null);
@@ -129,6 +134,9 @@ export const useCfxApi = () => {
     if (!forceRefresh) {
       const cached = serverCache.get(serverCode);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        abortControllerRef.current = null;
+        setError(null);
+        setErrorDetails(null);
         setServerData(cached.data);
         return;
       }
@@ -151,13 +159,16 @@ export const useCfxApi = () => {
       if (shouldSendWebhook) {
         try {
           const { data: session } = await supabase.auth.getSession();
+          if (!isCurrentRequest()) return;
           if (session?.session?.user) {
             searchedByEmail = session.session.user.email || 'Unknown';
             const { data: profile } = await supabase
               .from('profiles')
               .select('display_name')
               .eq('user_id', session.session.user.id)
+              .abortSignal(controller.signal)
               .maybeSingle();
+            if (!isCurrentRequest()) return;
             searchedBy = profile?.display_name || searchedByEmail;
           }
         } catch { /* ignore */ }
@@ -168,34 +179,28 @@ export const useCfxApi = () => {
       // GUARANTEES this resolves — no infinite loading possible.
       const outcome = await runAsync(
         async (signal) => {
-          const onAbort = () => {
-            // Translate signal into something supabase-js will respect by
-            // making the request promise reject ASAP. supabase-js doesn't
-            // accept an AbortSignal directly, but Promise.race in runAsync
-            // already wins the deadline.
-          };
-          signal.addEventListener("abort", onAbort);
-          try {
-            const { data: invokeData, error: invokeError } = await supabase.functions.invoke(
-              "cfx-lookup",
-              { body: { serverCode, skipWebhook: !shouldSendWebhook, searchedBy, searchedByEmail } },
-            );
-            if (invokeError) {
-              const body = await invokeError.context?.json?.().catch(() => null);
-              throw new Error(body?.error || invokeError.message || "Lookup failed");
-            }
-            if (invokeData?.error) {
-              throw new Error(invokeData.error);
-            }
-            return invokeData;
-          } finally {
-            signal.removeEventListener("abort", onAbort);
+          const { data: invokeData, error: invokeError } = await supabase.functions.invoke(
+            "cfx-lookup",
+            {
+              body: { serverCode, skipWebhook: !shouldSendWebhook, searchedBy, searchedByEmail },
+              signal,
+              timeout: 12000,
+            },
+          );
+          if (invokeError) {
+            const body = await invokeError.context?.json?.().catch(() => null);
+            throw new Error(body?.error || invokeError.message || "Lookup failed");
           }
+          if (invokeData?.error) {
+            throw new Error(invokeData.error);
+          }
+          return invokeData;
         },
         {
           timeoutMs: 12000,
-          retries: 1,
-          signal: abortControllerRef.current.signal,
+          retries: 0,
+          signal: controller.signal,
+          scope: "server-lookup",
           label: "cfx-lookup",
         },
       );
@@ -209,6 +214,7 @@ export const useCfxApi = () => {
       if (!outcome.ok) {
         throw outcome.error;
       }
+      if (!isCurrentRequest()) return;
 
       const data = outcome.data;
 
@@ -235,9 +241,21 @@ export const useCfxApi = () => {
       // Refine location using IP geolocation if we have an IP.
       // This is optional and safe to fail.
       if (data.ip) {
-        supabase.functions
-          .invoke('ip-geo', { body: { ip: data.ip } })
-          .then(({ data: geoData }) => {
+        runAsync(
+          async (signal) => {
+            const { data: geoData } = await supabase.functions.invoke('ip-geo', {
+              body: { ip: data.ip },
+              signal,
+              timeout: 5000,
+            });
+            return geoData;
+          },
+          { timeoutMs: 5000, retries: 0, signal: controller.signal, scope: "server-lookup", label: "ip-geo" },
+        )
+          .then((geoOutcome) => {
+            if (!geoOutcome.ok) return;
+            const geoData = geoOutcome.data;
+            if (!isCurrentRequest()) return;
             if (!geoData || geoData.error) return;
             // ipapi.co fields: country_name, region, city, org, asn
             const country = geoData.country_name || geoData.country || undefined;
@@ -267,6 +285,7 @@ export const useCfxApi = () => {
       if (!isRefresh) {
         try {
           const { data: session } = await supabase.auth.getSession();
+          if (!isCurrentRequest()) return;
           if (session?.session?.user) {
             const userId = session.session.user.id;
             
@@ -276,16 +295,19 @@ export const useCfxApi = () => {
               .from('search_history')
               .delete()
               .eq('user_id', userId)
-              .eq('query', serverCode);
+              .eq('query', serverCode)
+              .abortSignal(controller.signal);
+            if (!isCurrentRequest()) return;
             
             await supabase.from('search_history').insert({
               user_id: userId,
               query: serverCode,
               search_type: serverInfo.hostname || 'server',
-            });
+            }).abortSignal(controller.signal);
+            if (!isCurrentRequest()) return;
             
             // Trigger gamification
-            GamificationService.onSearch();
+            void GamificationService.onSearch();
           }
         } catch (historyError) {
           console.log("Could not save to history:", historyError);
@@ -293,6 +315,7 @@ export const useCfxApi = () => {
       }
 
     } catch (err) {
+      if (!isCurrentRequest() && err instanceof AsyncRequestError && err.kind === "aborted") return;
       // AsyncRequestError already carries a friendly message + kind.
       const isAsyncErr = err instanceof AsyncRequestError;
       const raw = err instanceof Error ? err.message : "Failed to fetch server data";
@@ -313,18 +336,25 @@ export const useCfxApi = () => {
       }
     } finally {
       // GUARANTEE the loading state always resolves.
-      setIsLoading(false);
+      if (isCurrentRequest() || abortControllerRef.current === controller) {
+        setIsLoading(false);
+        if (abortControllerRef.current === controller) abortControllerRef.current = null;
+      }
     }
   }, [serverData, t]);
 
   // Abort any in-flight lookup when the hook unmounts.
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       abortControllerRef.current?.abort();
+      cancelAsyncScope("server-lookup");
     };
   }, []);
 
   const clearData = useCallback(() => {
+    abortControllerRef.current?.abort();
+    cancelAsyncScope("server-lookup");
     setServerData(null);
     setError(null);
     setErrorDetails(null);

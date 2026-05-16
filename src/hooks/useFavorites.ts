@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { GamificationService } from "@/services/gamificationService";
 import { useAuthReady } from "@/hooks/useAuthReady";
+import { runAsync } from "@/lib/asyncRequest";
 
 export interface Favorite {
   id: string;
@@ -17,9 +18,15 @@ export const useFavorites = () => {
   const { user, isReady, isAuthenticated } = useAuthReady();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
 
   const fetchFavorites = useCallback(async () => {
     if (!isReady) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestSeqRef.current;
     try {
       if (!isAuthenticated || !user) {
         setFavorites([]);
@@ -27,23 +34,30 @@ export const useFavorites = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('server_favorites')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const outcome = await runAsync(async (signal) => {
+        const { data, error } = await supabase
+          .from('server_favorites')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .abortSignal(signal);
+        if (error) throw error;
+        return data || [];
+      }, { timeoutMs: 7000, retries: 0, signal: controller.signal, label: 'favorites' });
 
-      if (error) throw error;
-      setFavorites(data || []);
+      if (requestSeqRef.current !== requestId || controller.signal.aborted) return;
+      if (!outcome.ok) throw outcome.error;
+      setFavorites(outcome.data);
     } catch (err) {
       console.error("Error fetching favorites:", err);
     } finally {
-      setIsLoading(false);
+      if (requestSeqRef.current === requestId) setIsLoading(false);
     }
   }, [isAuthenticated, isReady, user]);
 
   useEffect(() => {
     if (isReady) fetchFavorites();
+    return () => abortRef.current?.abort();
   }, [fetchFavorites, isReady]);
 
   const addFavorite = async (serverCode: string, serverName: string | null) => {

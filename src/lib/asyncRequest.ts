@@ -39,6 +39,33 @@ export interface RunOptions {
   retryDelayMs?: number; // default 400
   /** Optional label for diagnostic logging. */
   label?: string;
+  /** Optional cancellation scope used to abort related background work. */
+  scope?: string;
+}
+
+const activeScopes = new Map<string, Set<AbortController>>();
+
+export function cancelAsyncScope(scope: string) {
+  const controllers = activeScopes.get(scope);
+  if (!controllers) return;
+  controllers.forEach((controller) => controller.abort());
+  controllers.clear();
+  activeScopes.delete(scope);
+}
+
+export function cancelAllAsyncRequests() {
+  Array.from(activeScopes.keys()).forEach(cancelAsyncScope);
+}
+
+function registerScopedController(scope: string | undefined, controller: AbortController) {
+  if (!scope) return () => {};
+  const controllers = activeScopes.get(scope) ?? new Set<AbortController>();
+  controllers.add(controller);
+  activeScopes.set(scope, controllers);
+  return () => {
+    controllers.delete(controller);
+    if (controllers.size === 0) activeScopes.delete(scope);
+  };
 }
 
 const TRANSIENT_PATTERN =
@@ -77,6 +104,7 @@ export async function runAsync<T>(
     signal: externalSignal,
     retryDelayMs = 400,
     label,
+    scope,
   } = options;
 
   let attempt = 0;
@@ -88,6 +116,7 @@ export async function runAsync<T>(
     }
 
     const controller = new AbortController();
+    const unregisterScope = registerScopedController(scope, controller);
     const onExternalAbort = () => controller.abort();
     externalSignal?.addEventListener("abort", onExternalAbort);
 
@@ -140,6 +169,7 @@ export async function runAsync<T>(
     } finally {
       clearTimeout(timeoutHandle);
       externalSignal?.removeEventListener("abort", onExternalAbort);
+      unregisterScope();
     }
   }
 

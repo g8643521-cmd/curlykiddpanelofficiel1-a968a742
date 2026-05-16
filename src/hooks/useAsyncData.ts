@@ -84,8 +84,10 @@ export function useAsyncData<T>(
         if (!mountedRef.current) return;
         if (controller.signal.aborted && outcome.ok === false && outcome.error.kind === "aborted") {
           // Silent — caller-initiated cancel.
+          if (controllerRef.current === controller) setIsLoading(false);
           return;
         }
+        if (controllerRef.current !== controller) return;
         setIsLoading(false);
         if (outcome.ok) {
           setData(outcome.data);
