@@ -111,6 +111,7 @@ const ServerDetails = ({
     [rawData]
   );
   const { isAdmin } = useAdminStatus();
+  void isAdmin;
   const { checkPlayersAgainstCheaters, isCheater, fetchCheaters } = useCheaterDatabase();
   const { getVisibility, isLoading: settingsLoading } = useSystemSettings();
   const { isEnabled: streamerMode } = useStreamerMode();
