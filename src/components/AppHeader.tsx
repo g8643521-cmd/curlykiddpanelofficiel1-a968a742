@@ -124,7 +124,10 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
   useAsyncData(
     async (signal) => {
       const sessionOutcome = await runAsync(
-        () => supabase.auth.getSession().then(({ data }) => data.session),
+        async () => {
+          const { data } = await supabase.auth.getSession();
+          return data.session;
+        },
         { timeoutMs: 5000, signal, label: 'AppHeader:getSession' },
       );
       if (!sessionOutcome.ok || !sessionOutcome.data) {
