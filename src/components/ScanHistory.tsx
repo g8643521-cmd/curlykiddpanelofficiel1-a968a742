@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 import { logActivity } from '@/lib/activityLog';
+import { runAsync } from '@/lib/asyncRequest';
+import { ErrorCard } from '@/components/feedback/ErrorCard';
 
 // ── Types ──────────────────────────────────────────────
 
