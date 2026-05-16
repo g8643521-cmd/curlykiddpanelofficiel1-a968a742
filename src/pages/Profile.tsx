@@ -428,6 +428,18 @@ const Profile = () => {
     );
   }
 
+  if (authError && !userInfo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <ErrorCard
+          title="Could not load profile"
+          message={authError}
+          onRetry={() => { setIsCheckingAuth(true); setAuthError(null); window.location.reload(); }}
+        />
+      </div>
+    );
+  }
+
   const roleMeta = ROLE_DISPLAY[userRole] || ROLE_DISPLAY.user;
   const displayName = userInfo?.display_name || 'Unknown';
   const userIdShort = userInfo?.user_id?.slice(0, 8) || '—';
