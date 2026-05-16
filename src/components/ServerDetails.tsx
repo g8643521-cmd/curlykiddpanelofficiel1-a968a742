@@ -37,7 +37,7 @@ import { ServerData } from "@/hooks/useCfxApi";
 import NotificationSettingsDialog from "@/components/NotificationSettingsDialog";
 
 import PlayerCard from "@/components/PlayerCard";
-import PingDistributionChart from "@/components/PingDistributionChart";
+
 import AdminResourceControl from "@/components/AdminResourceControl";
 import CheaterWarningBanner from "@/components/CheaterWarningBanner";
 import SensitiveText from "@/components/SensitiveText";
@@ -49,7 +49,7 @@ import ServerOwnerCard from "@/components/ServerOwnerCard";
 
 import ResourceInspector from "@/components/ResourceInspector";
 import PlayerReputation from "@/components/PlayerReputation";
-import EmbedCodeGenerator from "@/components/EmbedCodeGenerator";
+
 
 import { useAdminStatus } from "@/hooks/useAdminStatus";
 import { useCheaterDatabase } from "@/hooks/useCheaterDatabase";
@@ -111,14 +111,14 @@ const ServerDetails = ({
     [rawData]
   );
   const { isAdmin } = useAdminStatus();
+  void isAdmin;
   const { checkPlayersAgainstCheaters, isCheater, fetchCheaters } = useCheaterDatabase();
   const { getVisibility, isLoading: settingsLoading } = useSystemSettings();
   const { isEnabled: streamerMode } = useStreamerMode();
   
-  // Check settings visibility - respect the setting for all users
-  // While settings are loading, default to false to prevent flash
-  // 'all' = visible to everyone, 'admin' = admin only, 'disabled' = hidden for everyone
-  const showPingDistribution = !settingsLoading && (getVisibility('show_ping_distribution') === 'all' || (isAdmin && getVisibility('show_ping_distribution') === 'admin'));
+  // Settings visibility hook retained for other potential gated UI
+  void settingsLoading;
+  void getVisibility;
   // Use the passed server code, or extract from license key token as fallback
   const serverCode = propServerCode || data.licenseKeyToken?.split("_")[0] || null;
   const { iconUrl, iconLoading, iconError } = useServerIcon(propServerCode, data.iconVersion);
@@ -580,10 +580,6 @@ const ServerDetails = ({
         </div>
       )}
 
-      {/* Ping Distribution Chart */}
-      {showPingDistribution && data.players.length > 0 && (
-        <PingDistributionChart players={data.players} />
-      )}
 
 
       {/* Online Players - Full Width */}
@@ -775,9 +771,6 @@ const ServerDetails = ({
         <ResourceInspector resources={data.resources} />
       )}
 
-
-      {/* Embed Widget */}
-      <EmbedCodeGenerator serverCode={serverCode} />
 
     </div>
   );

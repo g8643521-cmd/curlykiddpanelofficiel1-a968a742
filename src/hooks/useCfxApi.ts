@@ -239,15 +239,20 @@ export const useCfxApi = () => {
           .invoke('ip-geo', { body: { ip: data.ip } })
           .then(({ data: geoData }) => {
             if (!geoData || geoData.error) return;
+            // ipapi.co fields: country_name, region, city, org, asn
+            const country = geoData.country_name || geoData.country || undefined;
+            const region = geoData.region || geoData.region_code || undefined;
+            const city = geoData.city || undefined;
+            const isp = geoData.org || geoData.isp || geoData.asn || undefined;
             setServerData((prev) => {
               if (!prev) return prev;
               return {
                 ...prev,
                 location: {
-                  country: geoData.country || prev.location?.country || 'Unknown',
-                  region: geoData.region || prev.location?.region || 'Unknown',
-                  city: geoData.city || prev.location?.city || 'Unknown',
-                  isp: geoData.isp || prev.location?.isp || 'Unknown Provider',
+                  country: country || prev.location?.country || 'Unknown',
+                  region: region || prev.location?.region || 'Unknown',
+                  city: city || prev.location?.city || 'Unknown',
+                  isp: isp || prev.location?.isp || 'Unknown Provider',
                 },
               };
             });
