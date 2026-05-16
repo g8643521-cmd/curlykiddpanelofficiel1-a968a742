@@ -363,6 +363,8 @@ const Profile = () => {
       setIsLinkingDiscord(false);
     }
   };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userInfo) return;
     if (!file.type.startsWith('image/')) { toast.error(t('profile.select_image')); return; }
