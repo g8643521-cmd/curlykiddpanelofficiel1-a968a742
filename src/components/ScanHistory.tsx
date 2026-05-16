@@ -457,6 +457,19 @@ export default function ScanHistory({
     );
   }
 
+  // ── Error State ────────────────────────────────────
+
+  if (loadError && scans.length === 0) {
+    return (
+      <ErrorCard
+        title="Could not load scan history"
+        message={loadError}
+        onRetry={() => { void fetchHistory(true); }}
+        isRetrying={refreshing}
+      />
+    );
+  }
+
   // ── Empty State ────────────────────────────────────
 
   if (scans.length === 0 && !loading) {
