@@ -252,7 +252,9 @@ export const useCfxApi = () => {
           },
           { timeoutMs: 5000, retries: 0, signal: controller.signal, scope: "server-lookup", label: "ip-geo" },
         )
-          .then(({ data: geoData }) => {
+          .then((geoOutcome) => {
+            if (!geoOutcome.ok) return;
+            const geoData = geoOutcome.data;
             if (!isCurrentRequest()) return;
             if (!geoData || geoData.error) return;
             // ipapi.co fields: country_name, region, city, org, asn
@@ -305,7 +307,7 @@ export const useCfxApi = () => {
             if (!isCurrentRequest()) return;
             
             // Trigger gamification
-            void GamificationService.onSearch(controller.signal);
+            void GamificationService.onSearch();
           }
         } catch (historyError) {
           console.log("Could not save to history:", historyError);
