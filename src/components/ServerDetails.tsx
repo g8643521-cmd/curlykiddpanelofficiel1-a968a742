@@ -49,7 +49,7 @@ import ServerOwnerCard from "@/components/ServerOwnerCard";
 
 import ResourceInspector from "@/components/ResourceInspector";
 import PlayerReputation from "@/components/PlayerReputation";
-import EmbedCodeGenerator from "@/components/EmbedCodeGenerator";
+
 
 import { useAdminStatus } from "@/hooks/useAdminStatus";
 import { useCheaterDatabase } from "@/hooks/useCheaterDatabase";
