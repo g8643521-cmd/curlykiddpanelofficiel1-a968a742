@@ -236,6 +236,7 @@ export default function ScanHistory({
   const [scans, setScans] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scanCheaters, setScanCheaters] = useState<Record<string, DetectedCheater[]>>({});
   const [loadingCheaters, setLoadingCheaters] = useState<string | null>(null);
