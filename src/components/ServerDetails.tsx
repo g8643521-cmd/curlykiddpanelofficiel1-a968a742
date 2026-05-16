@@ -37,7 +37,7 @@ import { ServerData } from "@/hooks/useCfxApi";
 import NotificationSettingsDialog from "@/components/NotificationSettingsDialog";
 
 import PlayerCard from "@/components/PlayerCard";
-import PingDistributionChart from "@/components/PingDistributionChart";
+
 import AdminResourceControl from "@/components/AdminResourceControl";
 import CheaterWarningBanner from "@/components/CheaterWarningBanner";
 import SensitiveText from "@/components/SensitiveText";
