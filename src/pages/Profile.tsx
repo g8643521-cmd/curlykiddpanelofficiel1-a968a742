@@ -210,26 +210,28 @@ const Profile = () => {
         if (!session) return;
 
         const redirectUri = `${window.location.origin}/profile`;
-        const fnUrl = `/api/public/discord-oauth?action=callback`;
-        const res = await fetch(fnUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${session.access_token}`,
+        const outcome = await apiFetch<any>(
+          `/api/public/discord-oauth?action=callback`,
+          {
+            method: 'POST',
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            json: { code, redirect_uri: redirectUri },
           },
-          body: JSON.stringify({ code, redirect_uri: redirectUri }),
-        });
-        const data = await res.json();
+          { timeoutMs: 10000, label: 'discord-oauth:callback' },
+        );
 
         // Clean URL
         window.history.replaceState({}, '', '/profile');
 
-        if (!res.ok || data.error) {
-          toast.error('Discord linking failed');
+        if (!outcome.ok || outcome.data?.error) {
+          toast.error(outcome.ok ? 'Discord linking failed' : outcome.error.message);
           return;
         }
 
+        const data = outcome.data;
         const discord = data.discord;
         setUserInfo(prev => prev ? {
           ...prev,
@@ -243,8 +245,6 @@ const Profile = () => {
         } : prev);
         const joinMsg = data.joined_guild ? ' & joined Discord server!' : '';
         toast.success(`Discord linked: ${discord.username}${joinMsg}`);
-      } catch {
-        toast.error('Discord linking failed');
       } finally {
         setIsLinkingDiscord(false);
       }
@@ -265,43 +265,31 @@ const Profile = () => {
       }
     }
 
-    try {
-      const redirectUri = `${window.location.origin}/profile`;
-      const fnUrl = `/api/public/discord-oauth?action=initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
-      const res = await fetch(fnUrl, {
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-      });
-      const result = await res.json();
+    const redirectUri = `${window.location.origin}/profile`;
+    const fnUrl = `/api/public/discord-oauth?action=initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const outcome = await apiFetch<{ url?: string }>(
+      fnUrl,
+      { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } },
+      { timeoutMs: 8000, label: 'discord-oauth:initiate' },
+    );
 
-      if (!result.url) {
-        oauthTab?.close();
-        toast.error('Could not start Discord linking');
-        return;
-      }
-
-      if (oauthTab) {
-        try {
-          oauthTab.opener = null;
-        } catch {}
-        oauthTab.location.href = result.url;
-        toast.success('Discord authorization opened in a new tab');
-        return;
-      }
-
-      if (isEmbedded) {
-        try {
-          window.top?.location.assign(result.url);
-          return;
-        } catch {}
-      }
-
-      window.location.href = result.url;
-    } catch {
+    if (!outcome.ok || !outcome.data?.url) {
       oauthTab?.close();
-      toast.error('Could not start Discord linking');
+      toast.error(outcome.ok ? 'Could not start Discord linking' : outcome.error.message);
+      return;
     }
+
+    const url = outcome.data.url;
+    if (oauthTab) {
+      try { oauthTab.opener = null; } catch {}
+      oauthTab.location.href = url;
+      toast.success('Discord authorization opened in a new tab');
+      return;
+    }
+    if (isEmbedded) {
+      try { window.top?.location.assign(url); return; } catch {}
+    }
+    window.location.href = url;
   };
 
   const handleUnlinkDiscord = async () => {
@@ -310,17 +298,23 @@ const Profile = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const fnUrl = `/api/public/discord-oauth?action=unlink`;
-      const res = await fetch(fnUrl, {
-        method: 'POST',
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${session.access_token}`,
+      const outcome = await apiFetch<{ success?: boolean }>(
+        `/api/public/discord-oauth?action=unlink`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session.access_token}`,
+          },
         },
-      });
-      const result = await res.json();
+        { timeoutMs: 8000, label: 'discord-oauth:unlink' },
+      );
 
-      if (result.success) {
+      if (!outcome.ok) {
+        toast.error(outcome.error.message);
+        return;
+      }
+      if (outcome.data?.success) {
         setUserInfo(prev => prev ? {
           ...prev,
           discord_user_id: null,
@@ -332,8 +326,6 @@ const Profile = () => {
         } : prev);
         toast.success('Discord unlinked');
       }
-    } catch {
-      toast.error('Could not unlink Discord');
     } finally {
       setIsLinkingDiscord(false);
     }
@@ -344,30 +336,33 @@ const Profile = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch('/api/public/discord-oauth?action=membership', {
-        method: 'POST',
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${session.access_token}`,
+      const outcome = await apiFetch<{ member?: boolean; status?: string; error?: string }>(
+        '/api/public/discord-oauth?action=membership',
+        {
+          method: 'POST',
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session.access_token}`,
+          },
         },
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Could not check Discord membership');
+        { timeoutMs: 8000, label: 'discord-oauth:membership' },
+      );
+      if (!outcome.ok || outcome.data?.error) {
+        toast.error(outcome.ok ? (outcome.data?.error || 'Could not check Discord membership') : outcome.error.message);
+        return;
+      }
+      const data = outcome.data;
       setUserInfo(prev => prev ? {
         ...prev,
-        discord_guild_member: data.member,
-        discord_guild_status: data.status,
+        discord_guild_member: data.member ?? null,
+        discord_guild_status: data.status || null,
         discord_guild_checked_at: new Date().toISOString(),
       } : prev);
       toast.success(data.member ? 'Discord membership verified' : 'Discord membership not found');
-    } catch (err: any) {
-      toast.error(err?.message || 'Could not check Discord membership');
     } finally {
       setIsLinkingDiscord(false);
     }
   };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userInfo) return;
     if (!file.type.startsWith('image/')) { toast.error(t('profile.select_image')); return; }
