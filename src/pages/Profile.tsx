@@ -17,6 +17,9 @@ import { toast } from 'sonner';
 import profileBanner from '@/assets/profile-banner.jpg';
 import { getProfileAvatarUrl } from '@/lib/avatar';
 import { syncCurrentUserProfile } from '@/lib/profileSync';
+import { runAsync } from '@/lib/asyncRequest';
+import { apiFetch } from '@/lib/apiFetch';
+import { ErrorCard } from '@/components/feedback/ErrorCard';
 
 const ROLE_DISPLAY: Record<string, { label: string; color: string }> = {
   owner: { label: 'OWNER', color: 'text-[hsl(var(--yellow))]' },
@@ -33,6 +36,7 @@ const Profile = () => {
   const [searchParams] = useSearchParams();
   const { t } = useI18n();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<{
     email: string;
     display_name: string | null;
@@ -102,29 +106,46 @@ const Profile = () => {
   usePresence();
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      setAuthError(null);
+      const sessionOutcome = await runAsync(
+        async () => (await supabase.auth.getSession()).data.session,
+        { timeoutMs: 5000, signal: controller.signal, label: 'Profile:getSession' },
+      );
+      if (cancelled) return;
+      if (!sessionOutcome.ok) {
+        setAuthError(sessionOutcome.error.message);
+        setIsCheckingAuth(false);
+        return;
+      }
+      const session = sessionOutcome.data;
       if (!session) {
         navigate('/login');
         return;
       }
-
       const user = session.user;
-      await syncCurrentUserProfile().catch(() => null);
-      let profile: any = null;
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (error) {
-          console.warn('[Profile] profile fetch error', error);
-        } else {
-          profile = data;
-        }
-      } catch (err) {
-        console.warn('[Profile] profile fetch threw', err);
+      void syncCurrentUserProfile().catch(() => null);
+
+      const profileOutcome = await runAsync(
+        async (signal) => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_url, discord_user_id, discord_username, discord_avatar, discord_guild_member, discord_guild_status, discord_guild_checked_at')
+            .eq('user_id', user.id)
+            .abortSignal(signal)
+            .maybeSingle();
+          if (error) throw new Error(error.message);
+          return data;
+        },
+        { timeoutMs: 6000, signal: controller.signal, label: 'Profile:fetchProfile' },
+      );
+      if (cancelled) return;
+      const profile: any = profileOutcome.ok ? profileOutcome.data : null;
+      if (!profileOutcome.ok) {
+        console.warn('[Profile] profile fetch failed', profileOutcome.error);
       }
 
       setUserInfo({
@@ -147,26 +168,34 @@ const Profile = () => {
       });
       setIsCheckingAuth(false);
 
-      // Fetch Discord invite URL
-      try {
-        const { data: inviteSetting } = await supabase
-          .from('admin_settings')
-          .select('value')
-          .eq('key', 'social_discord')
-          .maybeSingle();
-        if (inviteSetting?.value) setDiscordInviteUrl(inviteSetting.value);
-      } catch (err) {
-        console.warn('[Profile] invite fetch failed', err);
-      }
+      // Non-critical — fire-and-forget with timeout.
+      void runAsync(
+        async (signal) => {
+          const { data } = await supabase
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'social_discord')
+            .abortSignal(signal)
+            .maybeSingle();
+          return data?.value as string | null | undefined;
+        },
+        { timeoutMs: 4000, signal: controller.signal, label: 'Profile:discordInvite' },
+      ).then((res) => {
+        if (!cancelled && res.ok && res.data) setDiscordInviteUrl(res.data);
+      });
     };
 
-    checkAuth();
+    void checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       if (!session) navigate('/login');
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   // Handle Discord OAuth callback
@@ -181,26 +210,28 @@ const Profile = () => {
         if (!session) return;
 
         const redirectUri = `${window.location.origin}/profile`;
-        const fnUrl = `/api/public/discord-oauth?action=callback`;
-        const res = await fetch(fnUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${session.access_token}`,
+        const outcome = await apiFetch<any>(
+          `/api/public/discord-oauth?action=callback`,
+          {
+            method: 'POST',
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            json: { code, redirect_uri: redirectUri },
           },
-          body: JSON.stringify({ code, redirect_uri: redirectUri }),
-        });
-        const data = await res.json();
+          { timeoutMs: 10000, label: 'discord-oauth:callback' },
+        );
 
         // Clean URL
         window.history.replaceState({}, '', '/profile');
 
-        if (!res.ok || data.error) {
-          toast.error('Discord linking failed');
+        if (!outcome.ok || outcome.data?.error) {
+          toast.error(outcome.ok ? 'Discord linking failed' : outcome.error.message);
           return;
         }
 
+        const data = outcome.data;
         const discord = data.discord;
         setUserInfo(prev => prev ? {
           ...prev,
@@ -214,8 +245,6 @@ const Profile = () => {
         } : prev);
         const joinMsg = data.joined_guild ? ' & joined Discord server!' : '';
         toast.success(`Discord linked: ${discord.username}${joinMsg}`);
-      } catch {
-        toast.error('Discord linking failed');
       } finally {
         setIsLinkingDiscord(false);
       }
@@ -236,43 +265,31 @@ const Profile = () => {
       }
     }
 
-    try {
-      const redirectUri = `${window.location.origin}/profile`;
-      const fnUrl = `/api/public/discord-oauth?action=initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
-      const res = await fetch(fnUrl, {
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-      });
-      const result = await res.json();
+    const redirectUri = `${window.location.origin}/profile`;
+    const fnUrl = `/api/public/discord-oauth?action=initiate&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const outcome = await apiFetch<{ url?: string }>(
+      fnUrl,
+      { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } },
+      { timeoutMs: 8000, label: 'discord-oauth:initiate' },
+    );
 
-      if (!result.url) {
-        oauthTab?.close();
-        toast.error('Could not start Discord linking');
-        return;
-      }
-
-      if (oauthTab) {
-        try {
-          oauthTab.opener = null;
-        } catch {}
-        oauthTab.location.href = result.url;
-        toast.success('Discord authorization opened in a new tab');
-        return;
-      }
-
-      if (isEmbedded) {
-        try {
-          window.top?.location.assign(result.url);
-          return;
-        } catch {}
-      }
-
-      window.location.href = result.url;
-    } catch {
+    if (!outcome.ok || !outcome.data?.url) {
       oauthTab?.close();
-      toast.error('Could not start Discord linking');
+      toast.error(outcome.ok ? 'Could not start Discord linking' : outcome.error.message);
+      return;
     }
+
+    const url = outcome.data.url;
+    if (oauthTab) {
+      try { oauthTab.opener = null; } catch {}
+      oauthTab.location.href = url;
+      toast.success('Discord authorization opened in a new tab');
+      return;
+    }
+    if (isEmbedded) {
+      try { window.top?.location.assign(url); return; } catch {}
+    }
+    window.location.href = url;
   };
 
   const handleUnlinkDiscord = async () => {
@@ -281,17 +298,23 @@ const Profile = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const fnUrl = `/api/public/discord-oauth?action=unlink`;
-      const res = await fetch(fnUrl, {
-        method: 'POST',
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${session.access_token}`,
+      const outcome = await apiFetch<{ success?: boolean }>(
+        `/api/public/discord-oauth?action=unlink`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session.access_token}`,
+          },
         },
-      });
-      const result = await res.json();
+        { timeoutMs: 8000, label: 'discord-oauth:unlink' },
+      );
 
-      if (result.success) {
+      if (!outcome.ok) {
+        toast.error(outcome.error.message);
+        return;
+      }
+      if (outcome.data?.success) {
         setUserInfo(prev => prev ? {
           ...prev,
           discord_user_id: null,
@@ -303,8 +326,6 @@ const Profile = () => {
         } : prev);
         toast.success('Discord unlinked');
       }
-    } catch {
-      toast.error('Could not unlink Discord');
     } finally {
       setIsLinkingDiscord(false);
     }
@@ -315,24 +336,29 @@ const Profile = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch('/api/public/discord-oauth?action=membership', {
-        method: 'POST',
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${session.access_token}`,
+      const outcome = await apiFetch<{ member?: boolean; status?: string; error?: string }>(
+        '/api/public/discord-oauth?action=membership',
+        {
+          method: 'POST',
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session.access_token}`,
+          },
         },
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Could not check Discord membership');
+        { timeoutMs: 8000, label: 'discord-oauth:membership' },
+      );
+      if (!outcome.ok || outcome.data?.error) {
+        toast.error(outcome.ok ? (outcome.data?.error || 'Could not check Discord membership') : outcome.error.message);
+        return;
+      }
+      const data = outcome.data;
       setUserInfo(prev => prev ? {
         ...prev,
-        discord_guild_member: data.member,
-        discord_guild_status: data.status,
+        discord_guild_member: data.member ?? null,
+        discord_guild_status: data.status || null,
         discord_guild_checked_at: new Date().toISOString(),
       } : prev);
       toast.success(data.member ? 'Discord membership verified' : 'Discord membership not found');
-    } catch (err: any) {
-      toast.error(err?.message || 'Could not check Discord membership');
     } finally {
       setIsLinkingDiscord(false);
     }
@@ -398,6 +424,18 @@ const Profile = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (authError && !userInfo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <ErrorCard
+          title="Could not load profile"
+          message={authError}
+          onRetry={() => { setIsCheckingAuth(true); setAuthError(null); window.location.reload(); }}
+        />
       </div>
     );
   }

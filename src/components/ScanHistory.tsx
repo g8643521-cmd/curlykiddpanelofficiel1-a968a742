@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 import { logActivity } from '@/lib/activityLog';
+import { runAsync } from '@/lib/asyncRequest';
+import { ErrorCard } from '@/components/feedback/ErrorCard';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -234,6 +236,7 @@ export default function ScanHistory({
   const [scans, setScans] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [scanCheaters, setScanCheaters] = useState<Record<string, DetectedCheater[]>>({});
   const [loadingCheaters, setLoadingCheaters] = useState<string | null>(null);
@@ -305,19 +308,29 @@ export default function ScanHistory({
 
   const fetchHistory = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    setLoadError(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (userId) await claimImportedDataForCurrentUser(userId);
+    const outcome = await runAsync(async (signal) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user.id;
+      if (userId) await claimImportedDataForCurrentUser(userId);
 
-    let query = supabase
-      .from('scan_history')
-      .select('*')
-      .order('finished_at', { ascending: false })
-      .limit(guildIdFilter ? 100 : 25);
-    if (guildIdFilter) query = query.eq('guild_id', guildIdFilter);
-    const { data } = await query;
-    if (data) setScans(dedupeScans((data as ScanRecord[]).filter(isVisibleHistoryScan)));
+      let query = supabase
+        .from('scan_history')
+        .select('*')
+        .order('finished_at', { ascending: false })
+        .limit(guildIdFilter ? 100 : 25);
+      if (guildIdFilter) query = query.eq('guild_id', guildIdFilter);
+      const { data, error } = await query.abortSignal(signal);
+      if (error) throw new Error(error.message);
+      return data as ScanRecord[] | null;
+    }, { timeoutMs: 8000, label: 'ScanHistory:fetch' });
+
+    if (outcome.ok) {
+      if (outcome.data) setScans(dedupeScans(outcome.data.filter(isVisibleHistoryScan)));
+    } else {
+      setLoadError(outcome.error.message);
+    }
     setLoading(false);
     setRefreshing(false);
   }, [guildIdFilter]);
@@ -441,6 +454,19 @@ export default function ScanHistory({
           ))}
         </div>
       </div>
+    );
+  }
+
+  // ── Error State ────────────────────────────────────
+
+  if (loadError && scans.length === 0) {
+    return (
+      <ErrorCard
+        title="Could not load scan history"
+        message={loadError}
+        onRetry={() => { void fetchHistory(true); }}
+        isRetrying={refreshing}
+      />
     );
   }
 

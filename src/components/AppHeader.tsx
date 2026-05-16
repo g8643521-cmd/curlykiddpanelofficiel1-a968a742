@@ -20,6 +20,8 @@ import { logActivity } from '@/lib/activityLog';
 import { getSessionWithTimeout } from '@/lib/authSession';
 import { getProfileAvatarUrl } from '@/lib/avatar';
 import { syncCurrentUserProfile } from '@/lib/profileSync';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { runAsync } from '@/lib/asyncRequest';
 
 interface Profile {
   display_name: string | null;
@@ -118,17 +120,21 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
     }
   };
 
-  useEffect(() => {
-    setFetchState('loading');
-    setFetchError(null);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setFetchState('no-session');
-        return;
+  // Standardized profile fetch — hard timeout, abort on unmount, single retry.
+  useAsyncData(
+    async (signal) => {
+      const sessionOutcome = await runAsync(
+        async () => {
+          const { data } = await supabase.auth.getSession();
+          return data.session;
+        },
+        { timeoutMs: 5000, signal, label: 'AppHeader:getSession' },
+      );
+      if (!sessionOutcome.ok || !sessionOutcome.data) {
+        return { state: 'no-session' as const };
       }
-      const emailName = session.user.email
-        ? session.user.email.split('@')[0]
-        : null;
+      const session = sessionOutcome.data;
+      const emailName = session.user.email ? session.user.email.split('@')[0] : null;
       const metaName =
         session.user.user_metadata?.display_name ||
         session.user.user_metadata?.full_name ||
@@ -146,53 +152,62 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
         created_at: session.user.created_at || null,
         user_id: session.user.id,
       };
-      // Drop cache if it belongs to a different user
-      if (profile && profile.user_id !== session.user.id) {
-        setProfile(sessionFallback);
-      } else if (!profile) {
-        setProfile(sessionFallback);
-      }
+      // Fire-and-forget sync — never blocks the UI.
       void syncCurrentUserProfile().catch(() => null);
-      supabase
+
+      const { data, error } = await supabase
         .from('profiles')
         .select('display_name, role, avatar_url, discord_user_id, discord_avatar, banner_url')
         .eq('user_id', session.user.id)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (data) {
-            const profileData: Profile = {
-              ...sessionFallback,
-              ...data,
-              display_name:
-                (data.display_name && data.display_name.trim() && data.display_name.trim().toLowerCase() !== 'user')
-                  ? data.display_name
-                  : sessionFallback.display_name,
-              avatar_url: getProfileAvatarUrl(data) || session.user.user_metadata?.avatar_url || null,
-            };
-            setProfile(profileData);
-            setCachedProfile(profileData);
-            setFetchState('ok');
-            setAvatarStatus(profileData.avatar_url ? 'loading' : 'missing');
-            setBannerStatus(profileData.banner_url ? 'loading' : 'missing');
-          } else if (error) {
-            // eslint-disable-next-line no-console
-            console.error('[AppHeader] profile fetch error', error);
-            const err = error as { message?: string; code?: string; details?: string; hint?: string };
-            const parts = [err.code, err.message, err.details, err.hint].filter(Boolean);
-            setProfile(sessionFallback);
-            setCachedProfile(sessionFallback);
-            setFetchState('error');
-            setFetchError(parts.join(' · ') || 'unknown error');
-            setAvatarStatus(sessionFallback.avatar_url ? 'loading' : 'missing');
-            setBannerStatus('missing');
-          } else {
-            setFetchState('ok');
-            setAvatarStatus(sessionFallback.avatar_url ? 'loading' : 'missing');
-            setBannerStatus('missing');
-          }
-        });
-    });
-  }, []);
+        .abortSignal(signal)
+        .maybeSingle();
+
+      if (error) {
+        const err = error as { message?: string; code?: string; details?: string; hint?: string };
+        const parts = [err.code, err.message, err.details, err.hint].filter(Boolean);
+        return {
+          state: 'error' as const,
+          profile: sessionFallback,
+          message: parts.join(' · ') || 'unknown error',
+        };
+      }
+      if (!data) {
+        return { state: 'ok' as const, profile: sessionFallback };
+      }
+      const profileData: Profile = {
+        ...sessionFallback,
+        ...data,
+        display_name:
+          (data.display_name && data.display_name.trim() && data.display_name.trim().toLowerCase() !== 'user')
+            ? data.display_name
+            : sessionFallback.display_name,
+        avatar_url: getProfileAvatarUrl(data) || session.user.user_metadata?.avatar_url || null,
+      };
+      return { state: 'ok' as const, profile: profileData };
+    },
+    [],
+    {
+      timeoutMs: 8000,
+      label: 'AppHeader:profile',
+      onSuccess: (result) => {
+        if (result.state === 'no-session') {
+          setFetchState('no-session');
+          return;
+        }
+        const next = result.profile;
+        setProfile((prev) => (prev && prev.user_id === next.user_id ? { ...prev, ...next } : next));
+        setCachedProfile(next);
+        setFetchState(result.state === 'ok' ? 'ok' : 'error');
+        setFetchError(result.state === 'error' ? result.message : null);
+        setAvatarStatus(next.avatar_url ? 'loading' : 'missing');
+        setBannerStatus(next.banner_url ? 'loading' : 'missing');
+      },
+      onError: (err) => {
+        setFetchState('error');
+        setFetchError(err.message);
+      },
+    },
+  );
 
   const handleLogout = async () => {
     void logActivity({ category: 'auth', action: 'User logged out', severity: 'info' });
