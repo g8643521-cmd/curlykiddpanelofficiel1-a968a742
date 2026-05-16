@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuthReady } from "@/hooks/useAuthReady";
+import { runAsync } from "@/lib/asyncRequest";
 
 export interface SearchHistoryItem {
   id: string;
@@ -13,9 +14,15 @@ export const useSearchHistory = () => {
   const { user, isReady, isAuthenticated } = useAuthReady();
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
 
   const fetchHistory = useCallback(async () => {
     if (!isReady) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestSeqRef.current;
     try {
       if (!isAuthenticated || !user) {
         setHistory([]);
@@ -23,24 +30,31 @@ export const useSearchHistory = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('search_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const outcome = await runAsync(async (signal) => {
+        const { data, error } = await supabase
+          .from('search_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
+          .abortSignal(signal);
+        if (error) throw error;
+        return data || [];
+      }, { timeoutMs: 7000, retries: 0, signal: controller.signal, label: 'search-history' });
 
-      if (error) throw error;
-      setHistory(data || []);
+      if (requestSeqRef.current !== requestId || controller.signal.aborted) return;
+      if (!outcome.ok) throw outcome.error;
+      setHistory(outcome.data);
     } catch (err) {
       console.error("Error fetching search history:", err);
     } finally {
-      setIsLoading(false);
+      if (requestSeqRef.current === requestId) setIsLoading(false);
     }
   }, [isAuthenticated, isReady, user]);
 
   useEffect(() => {
     if (isReady) fetchHistory();
+    return () => abortRef.current?.abort();
   }, [fetchHistory, isReady]);
 
   const clearHistory = async () => {
