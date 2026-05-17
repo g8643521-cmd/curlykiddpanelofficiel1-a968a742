@@ -129,42 +129,55 @@ const Index = () => {
           <DashboardHero onGetStarted={() => navigate("/login")} />
         </section>
 
-        {/* Extra Features Grid */}
-        <section className="container mx-auto px-6 py-24">
+        {/* Platform Modules */}
+        <section className="container mx-auto px-6 py-28">
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-14"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-3xl mx-auto text-center mb-16"
           >
-            <h2 className="font-display text-3xl md:text-4xl font-bold">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/40 backdrop-blur-sm px-3 py-1 text-[11px] font-medium tracking-[0.14em] uppercase text-muted-foreground mb-6">
+              <span className="w-1 h-1 rounded-full bg-primary" />
+              Platform Modules
+            </div>
+            <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight leading-[1.1]">
               <span className="gradient-text">{t("index.more_features")}</span>
             </h2>
-            <p className="text-muted-foreground/60 mt-3 max-w-lg mx-auto">
+            <p className="text-muted-foreground text-base md:text-lg leading-relaxed mt-5 max-w-2xl mx-auto">
               {t("index.more_features_desc")}
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px bg-border/20 rounded-2xl overflow-hidden border border-border/30">
             {extraFeatures.map((feature, i) => (
-              <motion.div
+              <motion.article
                 key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
-                className="p-6 rounded-xl border border-border/20 bg-card/30 backdrop-blur-sm hover:-translate-y-1 hover:border-border/40 transition-all duration-300 group cursor-default"
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.45, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+                className="relative p-7 bg-card/40 backdrop-blur-sm hover:bg-card/70 transition-all duration-300 group cursor-default overflow-hidden"
               >
-                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${feature.bg} ${feature.color} mb-4`}>
-                  <feature.icon className="w-5 h-5" />
+                <span
+                  aria-hidden
+                  className={`absolute left-0 top-6 bottom-6 w-px ${feature.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                />
+                <span className="absolute top-5 right-5 text-[10px] font-mono text-muted-foreground/40 tabular-nums">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+
+                <div className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${feature.bg} ${feature.color} mb-5 ring-1 ring-inset ring-border/30 group-hover:scale-105 transition-transform duration-300`}>
+                  <feature.icon className="w-5 h-5" strokeWidth={1.75} />
                 </div>
-                <h3 className="font-display text-base font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+                <h3 className="font-display text-[17px] font-semibold text-foreground mb-2 tracking-tight group-hover:text-primary transition-colors">
                   {feature.title}
                 </h3>
-                <p className="text-muted-foreground/60 text-sm leading-relaxed">
+                <p className="text-muted-foreground/70 text-sm leading-relaxed">
                   {feature.desc}
                 </p>
-              </motion.div>
+              </motion.article>
             ))}
           </div>
         </section>
