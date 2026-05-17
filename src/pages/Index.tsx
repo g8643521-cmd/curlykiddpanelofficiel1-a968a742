@@ -26,6 +26,16 @@ const Index = () => {
     path: "/",
   });
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  // One round-trip instead of 5 individual admin_settings queries.
+  if (typeof window !== 'undefined') {
+    void prefetchHeroImages([
+      'hero_showcase_image',
+      'landing_feature_server_lookup',
+      'landing_feature_players',
+      'landing_feature_cheaters',
+      'landing_feature_mods',
+    ]);
+  }
   const featServerImg = useHeroImage("/images/showcase-server-details.png", "landing_feature_server_lookup");
   const featPlayersImg = useHeroImage(showcasePlayers, "landing_feature_players");
   const featCheatersImg = useHeroImage(showcaseCheaters, "landing_feature_cheaters");
