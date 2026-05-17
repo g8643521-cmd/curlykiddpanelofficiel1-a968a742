@@ -40,7 +40,14 @@ export default function AccountStatusGuard({ children }: { children: React.React
 
     load();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => load());
+    // Only reload on real identity changes — NOT on TOKEN_REFRESHED, which
+    // fires every time the tab regains focus and would otherwise re-query
+    // the profile + flash a loading state.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        load();
+      }
+    });
 
     // Realtime: react instantly when admin changes status
     let channel: ReturnType<typeof supabase.channel> | null = null;

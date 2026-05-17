@@ -9,8 +9,8 @@ export function usePermissions(permissionKeys: string[]) {
   const [isLoading, setIsLoading] = useState(true);
   const [permissions, setPermissions] = useState<PermissionMap>({});
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const { data: sessionRes } = await supabase.auth.getSession();
       const session = sessionRes.session;
@@ -42,9 +42,12 @@ export function usePermissions(permissionKeys: string[]) {
   }, [keys]);
 
   useEffect(() => {
-    // Listener first
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      refresh();
+    // Only react to real identity changes — TOKEN_REFRESHED fires on every
+    // tab focus and would otherwise flip permission gates back into loading.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        refresh(true);
+      }
     });
 
     // Then fetch

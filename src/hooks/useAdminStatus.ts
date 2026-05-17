@@ -110,7 +110,10 @@ function ensureAuthSub() {
       sessionStorage.removeItem(ROLE_CACHE_KEY);
       setState({ roles: [], isLoading: false });
       teardownRealtime();
-    } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+      // Intentionally NOT reacting to TOKEN_REFRESHED — that fires every
+      // time the tab regains focus and re-fetching roles each time causes
+      // admin pages to flash into loading on every tab switch.
       fetchRoles(true);
       ensureRealtime();
     }
