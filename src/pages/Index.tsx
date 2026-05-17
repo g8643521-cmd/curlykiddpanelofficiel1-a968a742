@@ -48,15 +48,21 @@ const Index = () => {
     { icon: Package, title: t("index.fivem_mods"), desc: t("index.fivem_mods_desc"), image: featModsImg },
   ];
 
-  const extraFeatures = [
-    { icon: MapPin, title: t("index.player_locator"), desc: t("index.player_locator_desc"), color: "text-[hsl(var(--cyan))]", bg: "bg-[hsl(var(--cyan))]/10" },
-    { icon: Crosshair, title: t("index.coord_lookup"), desc: t("index.coord_lookup_desc"), color: "text-[hsl(var(--magenta))]", bg: "bg-[hsl(var(--magenta))]/10" },
-    { icon: Eye, title: t("index.watchlist"), desc: t("index.watchlist_desc"), color: "text-[hsl(var(--yellow))]", bg: "bg-[hsl(var(--yellow))]/10" },
-    { icon: Globe, title: t("index.geolocation"), desc: t("index.geolocation_desc"), color: "text-[hsl(var(--purple))]", bg: "bg-[hsl(var(--purple))]/10" },
-    { icon: Code, title: t("index.embed"), desc: t("index.embed_desc"), color: "text-primary", bg: "bg-primary/10" },
-    { icon: Trophy, title: t("index.leaderboard"), desc: t("index.leaderboard_desc"), color: "text-[hsl(var(--yellow))]", bg: "bg-[hsl(var(--yellow))]/10" },
-    { icon: MessageCircle, title: t("index.social"), desc: t("index.social_desc"), color: "text-[hsl(var(--cyan))]", bg: "bg-[hsl(var(--cyan))]/10" },
+  const extraFeatures: Array<{
+    icon: typeof MapPin;
+    title: string;
+    desc: string;
+    color: string;
+    href: string;
+  }> = [
+    { icon: Crosshair, title: "Coordinate Lookup", desc: "Pinpoint any GTA V coordinate on an interactive map and share it instantly.", color: "text-[hsl(var(--magenta))]", href: "/coordinates" },
+    { icon: MapPin, title: "Player Locator", desc: "Search players across tracked servers and surface their live position.", color: "text-[hsl(var(--cyan))]", href: "/dashboard" },
+    { icon: Eye, title: "Server Watchlist", desc: "Track favourite servers and get notified the moment status changes.", color: "text-[hsl(var(--yellow))]", href: "/dashboard" },
+    { icon: Code, title: "Embeddable Widgets", desc: "Drop a live server-status widget into any website with one snippet.", color: "text-primary", href: "/dashboard" },
+    { icon: MessageCircle, title: "Discord Bot", desc: "Connect your Discord and run lookups, alerts and moderation in-server.", color: "text-[hsl(var(--purple))]", href: "/bot" },
+    { icon: Trophy, title: "Leaderboard & XP", desc: "Earn XP for every action and climb the community leaderboard.", color: "text-[hsl(var(--yellow))]", href: "/dashboard" },
   ];
+
 
   const shouldShowAuthFallback =
     searchParams.get("__spa_path") === "/login" ||
