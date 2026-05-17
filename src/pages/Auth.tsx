@@ -487,32 +487,42 @@ const Auth = () => {
                   <div className="space-y-2.5">
                     {vis.discord && (
                       <div className="group/discord relative">
-                        {/* Recommended ribbon */}
-                        <div className="absolute -top-2 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-[#5865F2] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md shadow-[#5865F2]/40">
-                          <Sparkles className="w-2.5 h-2.5" />
+                        {/* Recommended ribbon — floats + pulses */}
+                        <div className="absolute -top-2 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-[#5865F2] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white auth-ribbon-float">
+                          <Sparkles className="w-2.5 h-2.5 auth-sparkle-twinkle" />
                           Recommended
                         </div>
 
-                        {/* Glow */}
+                        {/* Rotating conic-gradient border on hover */}
                         <div
                           aria-hidden
-                          className="pointer-events-none absolute -inset-0.5 rounded-xl bg-[#5865F2]/40 opacity-0 blur-lg transition-opacity duration-300 group-hover/discord:opacity-100"
+                          className="pointer-events-none absolute -inset-[1.5px] rounded-xl opacity-0 group-hover/discord:opacity-100 transition-opacity duration-300 auth-conic-border"
+                        />
+                        {/* Soft glow halo */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute -inset-1 rounded-xl bg-[#5865F2]/50 opacity-0 blur-xl transition-opacity duration-500 group-hover/discord:opacity-100 animate-pulse"
                         />
 
                         <Button
                           type="button"
                           onClick={handleDiscordLogin}
                           disabled={discordLoading || isLoading}
-                          className="relative w-full h-12 bg-[#5865F2] text-[14.5px] hover:bg-[#4752C4] text-white font-semibold tracking-tight border-0 shadow-lg shadow-[#5865F2]/25 hover:shadow-[#5865F2]/50 transition-all overflow-hidden group/btn"
+                          className="relative w-full h-12 bg-[#5865F2] text-[14.5px] hover:bg-[#4752C4] text-white font-semibold tracking-tight border-0 shadow-lg shadow-[#5865F2]/25 hover:shadow-[#5865F2]/60 transition-all overflow-hidden group/btn"
                         >
                           {/* Sweep shimmer */}
                           <span
                             aria-hidden
-                            className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-12 -translate-x-full group-hover/btn:translate-x-[400%] transition-transform duration-[900ms] ease-out"
+                            className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 -translate-x-full group-hover/btn:translate-x-[400%] transition-transform duration-[900ms] ease-out"
                           />
-                          <DiscordIcon className="w-[18px] h-[18px] mr-2 transition-transform duration-300 group-hover/btn:scale-110 group-hover/btn:-rotate-6" />
+                          {/* Second sweep, delayed */}
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-12 -translate-x-full group-hover/btn:translate-x-[450%] transition-transform duration-[1400ms] ease-out delay-150"
+                          />
+                          <DiscordIcon className="w-[18px] h-[18px] mr-2 transition-transform duration-500 group-hover/btn:scale-125 group-hover/btn:-rotate-12" />
                           Continue with Discord
-                          <ArrowRight className="w-4 h-4 ml-2 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all duration-300" />
+                          <ArrowRight className="w-4 h-4 ml-2 opacity-0 -translate-x-3 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all duration-300" />
                         </Button>
 
                         {/* Drop-down details panel on hover */}
@@ -525,7 +535,7 @@ const Auth = () => {
                                   Fastest sign-in
                                 </span>
                               </div>
-                              <ul className="space-y-1.5 text-[11.5px] text-muted-foreground/90">
+                              <ul className="space-y-1.5 text-[11.5px] text-muted-foreground/90 auth-tick-stagger">
                                 <li className="flex items-start gap-2">
                                   <CheckCircle2 className="w-3 h-3 mt-0.5 text-emerald-400/90 flex-shrink-0" />
                                   <span>One-click — no password to remember</span>
