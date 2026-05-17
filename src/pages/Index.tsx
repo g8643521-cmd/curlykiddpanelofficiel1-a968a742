@@ -156,34 +156,50 @@ const Index = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px bg-border/20 rounded-2xl overflow-hidden border border-border/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {extraFeatures.map((feature, i) => (
-              <motion.article
+              <motion.a
                 key={feature.title}
+                href={feature.href}
+                onClick={(e) => { e.preventDefault(); navigate(feature.href); }}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.45, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
-                className="relative p-7 bg-card/40 backdrop-blur-sm hover:bg-card/70 transition-all duration-300 group cursor-default overflow-hidden"
+                transition={{ duration: 0.45, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                className="relative isolate p-7 rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden group transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/40 hover:shadow-[0_24px_70px_-30px_hsl(var(--primary)/0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               >
+                {/* Hover sheen */}
                 <span
                   aria-hidden
-                  className={`absolute left-0 top-6 bottom-6 w-px ${feature.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                  className="pointer-events-none absolute inset-0 -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-primary/[0.08] via-transparent to-transparent"
                 />
-                <span className="absolute top-5 right-5 text-[10px] font-mono text-muted-foreground/40 tabular-nums">
+                {/* Top accent line */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-center"
+                />
+                {/* Index */}
+                <span className="absolute top-5 right-6 text-[10px] font-mono text-muted-foreground/40 tabular-nums tracking-wider">
                   {String(i + 1).padStart(2, "0")}
                 </span>
 
-                <div className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${feature.bg} ${feature.color} mb-5 ring-1 ring-inset ring-border/30 group-hover:scale-105 transition-transform duration-300`}>
-                  <feature.icon className="w-5 h-5" strokeWidth={1.75} />
-                </div>
-                <h3 className="font-display text-[17px] font-semibold text-foreground mb-2 tracking-tight group-hover:text-primary transition-colors">
+                <feature.icon
+                  className={`w-7 h-7 mb-6 ${feature.color} transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-0.5`}
+                  strokeWidth={1.5}
+                />
+
+                <h3 className="font-display text-[18px] font-semibold text-foreground mb-2 tracking-tight">
                   {feature.title}
                 </h3>
-                <p className="text-muted-foreground/70 text-sm leading-relaxed">
+                <p className="text-muted-foreground/75 text-[13.5px] leading-relaxed mb-5">
                   {feature.desc}
                 </p>
-              </motion.article>
+
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground/60 group-hover:text-primary transition-colors duration-300">
+                  Open module
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+                </span>
+              </motion.a>
             ))}
           </div>
         </section>
