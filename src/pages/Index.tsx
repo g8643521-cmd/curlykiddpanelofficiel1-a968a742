@@ -8,7 +8,7 @@ import BrandLogo from "@/components/BrandLogo";
 import DashboardHero from "@/components/DashboardHero";
 import Footer from "@/components/Footer";
 import { getSessionWithTimeout } from "@/lib/authSession";
-import { useHeroImage } from "@/hooks/useHeroImage";
+import { useHeroImage, prefetchHeroImages } from "@/hooks/useHeroImage";
 import { useI18n } from "@/lib/i18n";
 import showcasePlayers from "@/assets/showcase-players.png";
 
