@@ -414,22 +414,13 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/60" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden border-border/40 shadow-2xl">
-                {/* Discord/profile sync debug pill */}
-                <div className="px-3 pt-2 pb-1 flex flex-wrap items-center gap-1.5 bg-card/60 border-b border-border/30">
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 mr-1">sync</span>
-                  <StatusPill label="profile" state={fetchState === 'ok' ? 'ok' : fetchState === 'loading' ? 'loading' : fetchState === 'no-session' ? 'missing' : 'error'} title={fetchError ?? undefined} />
-                  {fetchState === 'error' && fetchError && (
-                    <div className="basis-full mt-1 px-1.5 py-1 rounded text-[10px] text-destructive bg-destructive/10 border border-destructive/30 break-all">
-                      {fetchError}
-                    </div>
-                  )}
-                  <StatusPill label="avatar" state={avatarStatus} title={profile?.avatar_url ?? 'no url'} />
-                  <StatusPill label="banner" state={bannerStatus} title={profile?.banner_url ?? 'no url'} />
-                  <StatusPill label="discord" state={profile?.discord_user_id ? 'ok' : 'missing'} title={profile?.discord_user_id ?? 'not linked'} />
-                </div>
-                {/* Profile banner */}
-                <div className="relative h-24 overflow-hidden bg-muted/40">
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="w-[320px] p-0 overflow-hidden border-border/50 bg-card/95 backdrop-blur-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] rounded-xl"
+              >
+                {/* Banner with gradient overlay */}
+                <div className="relative h-[88px] overflow-hidden bg-gradient-to-br from-primary/20 via-muted/40 to-muted/20">
                   <img
                     src={profile?.banner_url || profileBanner}
                     alt=""
@@ -441,146 +432,147 @@ const AppHeader = ({ showBackButton = false, title, subtitle, onLogoClick }: App
                     onLoad={() => setBannerStatus(profile?.banner_url ? 'ok' : 'missing')}
                     onError={() => setBannerStatus('error')}
                   />
-                  {bannerStatus === 'loading' && (
-                    <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-background/70 text-muted-foreground flex items-center gap-1">
-                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> banner
-                    </div>
-                  )}
-                  {bannerStatus === 'error' && (
-                    <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-destructive/80 text-destructive-foreground">
-                      banner failed
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
+                  {fetchState === 'error' && (
+                    <div
+                      className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-destructive/90 text-destructive-foreground text-[9px] font-medium shadow"
+                      title={fetchError ?? 'Sync error'}
+                    >
+                      <XCircle className="w-2.5 h-2.5" /> Sync error
                     </div>
                   )}
                 </div>
 
-                {/* Profile header */}
-                <div className="px-4 pb-4 -mt-12 relative">
-                  <div className="flex items-end gap-3 mb-3">
-                    <div className="relative">
-                      {profile?.avatar_url ? (
-                        <img
-                          src={profile.avatar_url}
-                          alt=""
-                          className="w-16 h-16 rounded-full object-cover ring-4 ring-background shadow-lg"
-                          onLoad={() => setAvatarStatus('ok')}
-                          onError={() => setAvatarStatus('error')}
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center ring-4 ring-background shadow-lg">
-                          <span className="text-xl font-bold text-primary">
-                            {(profile?.display_name || '?').charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      {avatarStatus === 'loading' && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-background ring-2 ring-background flex items-center justify-center">
-                          <Loader2 className="w-2.5 h-2.5 animate-spin text-muted-foreground" />
-                        </div>
-                      )}
-                      {avatarStatus === 'error' && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive ring-2 ring-background flex items-center justify-center" title="Avatar failed to load">
-                          <XCircle className="w-3 h-3 text-destructive-foreground" />
-                        </div>
-                      )}
-                      <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[hsl(var(--green))] ring-2 ring-background" title="Online" />
-                    </div>
+                {/* Identity */}
+                <div className="px-4 pb-3 -mt-10 relative">
+                  <div className="relative inline-block mb-2.5">
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt=""
+                        className="w-[68px] h-[68px] rounded-full object-cover ring-[3px] ring-card shadow-xl"
+                        onLoad={() => setAvatarStatus('ok')}
+                        onError={() => setAvatarStatus('error')}
+                      />
+                    ) : (
+                      <div className="w-[68px] h-[68px] rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center ring-[3px] ring-card shadow-xl">
+                        <span className="text-2xl font-semibold text-primary">
+                          {(profile?.display_name || '?').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <span
+                      className="absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full bg-[hsl(var(--green))] ring-[3px] ring-card"
+                      title="Online"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <p className="text-[15px] font-semibold text-foreground truncate">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <p className="text-[15px] font-semibold text-foreground truncate leading-tight">
                       {profile?.display_name || t('nav.user_fallback')}
                     </p>
                     <BadgeCheck className="w-4 h-4 text-primary shrink-0" />
                   </div>
+                  <p className="text-[12px] text-muted-foreground/80 truncate mb-2.5" title={profile?.email || ''}>
+                    {profile?.email || '—'}
+                  </p>
 
                   <div className="flex items-center gap-2 mb-3">
                     {getRoleBadge()}
-                    <span className="text-[10px] text-muted-foreground/60">·</span>
-                    <span className="text-[11px] text-muted-foreground/80 capitalize">{userRole || profile?.role || 'user'}</span>
                   </div>
 
-                  {/* Info rows */}
-                  <div className="space-y-1.5 rounded-lg bg-muted/30 border border-border/40 p-2.5">
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <Mail className="w-3 h-3 text-muted-foreground/70 shrink-0" />
-                      <span className="text-muted-foreground/90 truncate flex-1" title={profile?.email || ''}>
-                        {profile?.email || '—'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <Calendar className="w-3 h-3 text-muted-foreground/70 shrink-0" />
-                      <span className="text-muted-foreground/90 flex-1">
-                        Joined {formatJoined(profile?.created_at ?? null)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <User className="w-3 h-3 text-muted-foreground/70 shrink-0" />
-                      <span className="text-muted-foreground/90 font-mono truncate flex-1" title={profile?.user_id || ''}>
-                        {profile?.user_id ? `${profile.user_id.slice(0, 8)}…${profile.user_id.slice(-4)}` : '—'}
-                      </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCopyId(); }}
-                        className="p-1 rounded hover:bg-background/60 transition-colors text-muted-foreground/70 hover:text-foreground"
-                        title="Copy user ID"
-                      >
-                        {copiedId ? <Check className="w-3 h-3 text-[hsl(var(--green))]" /> : <Copy className="w-3 h-3" />}
-                      </button>
-                    </div>
+                  {/* Meta row */}
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground/70 pt-2.5 border-t border-border/40">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3" />
+                      {formatJoined(profile?.created_at ?? null)}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCopyId(); }}
+                      className="flex items-center gap-1 font-mono hover:text-foreground transition-colors group"
+                      title={profile?.user_id || 'Copy user ID'}
+                    >
+                      <span>{profile?.user_id ? `${profile.user_id.slice(0, 6)}…${profile.user_id.slice(-4)}` : '—'}</span>
+                      {copiedId ? (
+                        <Check className="w-3 h-3 text-[hsl(var(--green))]" />
+                      ) : (
+                        <Copy className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                {/* Menu actions */}
-                <div className="p-1.5 border-t border-border/30">
-                  <p className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-                    Account
-                  </p>
-                  <DropdownMenuItem onSelect={() => navigate('/profile')} className="gap-2.5 cursor-pointer rounded-md">
+                {/* Menu */}
+                <div className="px-1.5 py-1.5 border-t border-border/40 bg-background/30">
+                  <DropdownMenuItem
+                    onSelect={() => navigate('/profile')}
+                    className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] focus:bg-accent/60"
+                  >
                     <User className="w-4 h-4 text-muted-foreground" />
                     <span className="flex-1">View profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/settings')} className="gap-2.5 cursor-pointer rounded-md">
+                  <DropdownMenuItem
+                    onSelect={() => navigate('/settings')}
+                    className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] focus:bg-accent/60"
+                  >
                     <Settings className="w-4 h-4 text-muted-foreground" />
                     <span className="flex-1">Settings</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/profile')} className="gap-2.5 cursor-pointer rounded-md">
+                  <DropdownMenuItem
+                    onSelect={() => navigate('/profile')}
+                    className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] focus:bg-accent/60"
+                  >
                     <Activity className="w-4 h-4 text-muted-foreground" />
                     <span className="flex-1">Activity</span>
                   </DropdownMenuItem>
 
                   {(isAdmin || isOwner) && (
                     <>
-                      <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-                        Staff
-                      </p>
-                      <DropdownMenuItem onSelect={() => navigate('/admin')} className="gap-2.5 cursor-pointer rounded-md">
+                      <DropdownMenuSeparator className="my-1 bg-border/40" />
+                      <DropdownMenuItem
+                        onSelect={() => navigate('/admin')}
+                        className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] focus:bg-accent/60"
+                      >
                         <Shield className="w-4 h-4 text-[hsl(var(--magenta))]" />
                         <span className="flex-1">Admin panel</span>
+                        <span className="text-[9px] uppercase tracking-wider text-[hsl(var(--magenta))] font-semibold">
+                          Staff
+                        </span>
                       </DropdownMenuItem>
                     </>
                   )}
 
-                  <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-                    Workspace
-                  </p>
-                  <DropdownMenuItem onSelect={() => navigate('/dashboard')} className="gap-2.5 cursor-pointer rounded-md text-primary focus:text-primary">
+                  <DropdownMenuSeparator className="my-1 bg-border/40" />
+
+                  <DropdownMenuItem
+                    onSelect={() => navigate('/dashboard')}
+                    className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] text-primary focus:text-primary focus:bg-primary/10"
+                  >
                     <LayoutGrid className="w-4 h-4" />
-                    <span className="flex-1 font-medium">Open full menu</span>
+                    <span className="flex-1 font-medium">Open dashboard</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => window.open('https://docs.lovable.dev', '_blank')} className="gap-2.5 cursor-pointer rounded-md">
+                  <DropdownMenuItem
+                    onSelect={() => window.open('https://docs.lovable.dev', '_blank')}
+                    className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] focus:bg-accent/60"
+                  >
                     <HelpCircle className="w-4 h-4 text-muted-foreground" />
                     <span className="flex-1">Help & support</span>
                   </DropdownMenuItem>
 
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={handleLogout} className="gap-2.5 cursor-pointer rounded-md text-destructive focus:text-destructive">
+                  <DropdownMenuSeparator className="my-1 bg-border/40" />
+
+                  <DropdownMenuItem
+                    onSelect={handleLogout}
+                    className="gap-2.5 cursor-pointer rounded-md py-2 px-2.5 text-[13px] text-destructive focus:text-destructive focus:bg-destructive/10"
+                  >
                     <LogOut className="w-4 h-4" />
                     <span className="flex-1">{t('nav.logout')}</span>
                   </DropdownMenuItem>
                 </div>
 
-                <div className="px-3 py-2 bg-muted/20 border-t border-border/30 flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground/60">Curly Kidd Panel</span>
-                  <span className="text-[10px] text-muted-foreground/40 font-mono">v1.0</span>
+                <div className="px-3.5 py-2 bg-muted/20 border-t border-border/40 flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-muted-foreground/70 tracking-wide">Curly Kidd Panel</span>
+                  <span className="text-[10px] text-muted-foreground/50 font-mono">v1.0</span>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
