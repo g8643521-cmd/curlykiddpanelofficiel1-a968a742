@@ -102,23 +102,12 @@ export function installAuthRecovery() {
     }
   });
 
-  // When the tab becomes visible again after being idle, proactively
-  // refresh the session so the next user click doesn't hit an expired
-  // access token (which then cascades into slow retries / sign-out).
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
-    const now = Date.now();
-    if (now - lastRefreshAttempt < 30_000) return;
-    lastRefreshAttempt = now;
-    supabase.auth.getSession().then(({ data: { session } }: any) => {
-      if (!session) return;
-      const expiresAt = (session.expires_at || 0) * 1000;
-      // Refresh if token expires within the next 2 minutes (or already expired)
-      if (expiresAt - Date.now() < 2 * 60 * 1000) {
-        supabase.auth.refreshSession().catch(() => {});
-      }
-    }).catch(() => {});
-  });
+  // NOTE: We deliberately do NOT proactively refresh the session on
+  // visibilitychange. Supabase's auth client already has autoRefreshToken
+  // enabled and handles expiry on its own. Calling refreshSession() on
+  // every tab focus caused a TOKEN_REFRESHED storm that cascaded into
+  // every onAuthStateChange listener (admin status, permissions, profile
+  // guard, …) and made the whole UI flash into loading after tab switches.
 
   // Probe the session on boot; if /user returns 403 bad_jwt, recover.
   supabase.auth.getUser().then(({ error }) => {
