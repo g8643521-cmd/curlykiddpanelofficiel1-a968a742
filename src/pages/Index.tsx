@@ -51,17 +51,61 @@ const Index = () => {
   const extraFeatures: Array<{
     icon: typeof MapPin;
     title: string;
+    tagline: string;
     desc: string;
+    howItWorks: string[];
     color: string;
+    accent: string;
     href: string;
+    image: string;
   }> = [
-    { icon: Crosshair, title: "Coordinate Lookup", desc: "Pinpoint any GTA V coordinate on an interactive map and share it instantly.", color: "text-[hsl(var(--magenta))]", href: "/coordinates" },
-    { icon: MapPin, title: "Player Locator", desc: "Search players across tracked servers and surface their live position.", color: "text-[hsl(var(--cyan))]", href: "/dashboard" },
-    { icon: Eye, title: "Server Watchlist", desc: "Track favourite servers and get notified the moment status changes.", color: "text-[hsl(var(--yellow))]", href: "/dashboard" },
-    { icon: Code, title: "Embeddable Widgets", desc: "Drop a live server-status widget into any website with one snippet.", color: "text-primary", href: "/dashboard" },
-    { icon: MessageCircle, title: "Discord Bot", desc: "Connect your Discord and run lookups, alerts and moderation in-server.", color: "text-[hsl(var(--purple))]", href: "/bot" },
-    { icon: Trophy, title: "Leaderboard & XP", desc: "Earn XP for every action and climb the community leaderboard.", color: "text-[hsl(var(--yellow))]", href: "/dashboard" },
+    {
+      icon: Search,
+      title: "Server Lookup",
+      tagline: "Instant intelligence on any CFX code",
+      desc: "Paste a CFX join code and get a complete profile of the server within seconds — built for owners who need answers, not guesses.",
+      howItWorks: [
+        "Resolves the join code to the direct IP, port and game build",
+        "Pulls live player count, ping, gametype, mapname and tags",
+        "Surfaces hosting region, ISP and onesync / OneSync Plus state",
+      ],
+      color: "text-[hsl(var(--cyan))]",
+      accent: "from-[hsl(var(--cyan))]/30",
+      href: "/dashboard",
+      image: featureServerLookupImg,
+    },
+    {
+      icon: MapPin,
+      title: "Player Locator",
+      tagline: "Find any player across tracked servers",
+      desc: "Search by name or identifier and pinpoint exactly where a player is — and where they've been — across every server you watch.",
+      howItWorks: [
+        "Cross-references active sessions across watched servers",
+        "Plots live coordinates on an interactive GTA V map",
+        "Keeps a session history so you can rebuild a player's timeline",
+      ],
+      color: "text-[hsl(var(--magenta))]",
+      accent: "from-[hsl(var(--magenta))]/30",
+      href: "/dashboard",
+      image: featurePlayerLocatorImg,
+    },
+    {
+      icon: MessageCircle,
+      title: "Discord Bot",
+      tagline: "Lookups, alerts and moderation in-server",
+      desc: "Connect CurlyKidd Bot to your Discord and bring the entire toolkit to your community — without anyone leaving the chat.",
+      howItWorks: [
+        "Slash-commands for lookups, player checks and cheater reports",
+        "Real-time alerts when watched servers change status",
+        "Role-aware moderation actions logged back to the panel",
+      ],
+      color: "text-[hsl(var(--purple))]",
+      accent: "from-[hsl(var(--purple))]/35",
+      href: "/bot",
+      image: featureDiscordBotImg,
+    },
   ];
+
 
 
   const shouldShowAuthFallback =
