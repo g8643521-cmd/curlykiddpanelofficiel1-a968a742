@@ -579,7 +579,7 @@ const Auth = () => {
                                   Quick & familiar
                                 </span>
                               </div>
-                              <ul className="space-y-1.5 text-[11.5px] text-muted-foreground/90">
+                              <ul className="space-y-1.5 text-[11.5px] text-muted-foreground/90 auth-tick-stagger">
                                 <li className="flex items-start gap-2">
                                   <CheckCircle2 className="w-3 h-3 mt-0.5 text-emerald-400/90 flex-shrink-0" />
                                   <span>Sign in with your existing Google account</span>
@@ -627,7 +627,7 @@ const Auth = () => {
                                   Private & secure
                                 </span>
                               </div>
-                              <ul className="space-y-1.5 text-[11.5px] text-muted-foreground/90">
+                              <ul className="space-y-1.5 text-[11.5px] text-muted-foreground/90 auth-tick-stagger">
                                 <li className="flex items-start gap-2">
                                   <CheckCircle2 className="w-3 h-3 mt-0.5 text-emerald-400/90 flex-shrink-0" />
                                   <span>Hide My Email keeps your inbox private</span>
