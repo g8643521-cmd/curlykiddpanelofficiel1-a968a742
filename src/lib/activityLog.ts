@@ -37,34 +37,44 @@ supabase.auth.onAuthStateChange(() => {
 
 /**
  * Log an activity. Writes to activity_log and dispatches to matching system_webhooks
- * via the activity-dispatcher edge function (best-effort, non-blocking).
+ * via the activity-dispatcher edge function. Deferred to idle time so it
+ * never competes with navigation/render.
  */
 export async function logActivity(entry: LogEntry): Promise<void> {
-  try {
-    const sess = await resolveSession();
-    const row = {
-      user_id: sess.userId || null,
-      user_email: sess.email || null,
-      user_display_name: sess.name || null,
-      category: entry.category,
-      action: entry.action,
-      description: entry.description || null,
-      metadata: entry.metadata || null,
-      page_path: entry.pagePath || (typeof window !== 'undefined' ? window.location.pathname : null),
-      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-      severity: entry.severity || 'info',
-    };
+  const runWhenIdle = (fn: () => void) => {
+    if (typeof window === 'undefined') return fn();
+    const ric = (window as any).requestIdleCallback;
+    if (typeof ric === 'function') ric(fn, { timeout: 2000 });
+    else setTimeout(fn, 0);
+  };
 
-    // Insert (fire & forget)
-    void supabase.from('activity_log').insert(row).then(({ error }) => {
-      if (error) console.warn('[activityLog] insert failed:', error.message);
-    });
+  runWhenIdle(async () => {
+    try {
+      const sess = await resolveSession();
+      const row = {
+        user_id: sess.userId || null,
+        user_email: sess.email || null,
+        user_display_name: sess.name || null,
+        category: entry.category,
+        action: entry.action,
+        description: entry.description || null,
+        metadata: entry.metadata || null,
+        page_path: entry.pagePath || (typeof window !== 'undefined' ? window.location.pathname : null),
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        severity: entry.severity || 'info',
+      };
 
-    // Dispatch to webhooks (fire & forget)
-    void supabase.functions
-      .invoke('activity-dispatcher', { body: row })
-      .catch((e) => console.warn('[activityLog] dispatch failed:', e?.message || e));
-  } catch (err) {
-    console.warn('[activityLog] unexpected:', err);
-  }
+      // Insert (fire & forget)
+      void supabase.from('activity_log').insert(row).then(({ error }: any) => {
+        if (error) console.warn('[activityLog] insert failed:', error.message);
+      });
+
+      // Dispatch to webhooks (fire & forget)
+      void supabase.functions
+        .invoke('activity-dispatcher', { body: row })
+        .catch((e: any) => console.warn('[activityLog] dispatch failed:', e?.message || e));
+    } catch (err) {
+      console.warn('[activityLog] unexpected:', err);
+    }
+  });
 }
