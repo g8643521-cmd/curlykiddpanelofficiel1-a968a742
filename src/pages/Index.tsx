@@ -14,6 +14,9 @@ import showcasePlayers from "@/assets/showcase-players.png";
 
 import showcaseCheaters from "@/assets/showcase-cheaters.png";
 import showcaseMods from "@/assets/showcase-mods.png";
+import featureServerLookupImg from "@/assets/feature-server-lookup.jpg";
+import featurePlayerLocatorImg from "@/assets/feature-player-locator.jpg";
+import featureDiscordBotImg from "@/assets/feature-discord-bot.jpg";
 import { usePageMeta } from "@/hooks/usePageMeta";
 
 const Index = () => {
