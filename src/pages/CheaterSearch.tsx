@@ -115,6 +115,15 @@ const copyToClipboard = (text: string) => {
   toast.success('Copied to clipboard');
 };
 
+const EXTERNAL_LOOKUP_UNAVAILABLE = 'External screening is temporarily unavailable. Cheater DB results are still available.';
+
+const getExternalLookupMessage = (value?: string | null) => {
+  if (!value || /lookup failed|upstream|failed to contact|functionshttp|non-2xx/i.test(value)) {
+    return EXTERNAL_LOOKUP_UNAVAILABLE;
+  }
+  return value;
+};
+
 const CheaterSearch = () => {
   const { isAdmin, isOwner } = useAdminStatus();
   const canUseAdminMode = isAdmin || isOwner;
@@ -366,7 +375,7 @@ const CheaterSearch = () => {
           setSxResult(data.data);
           setSxDiscordUser(sxDiscordUserData || null);
         } else {
-          setSxError(data?.error || 'Lookup failed');
+          setSxError(getExternalLookupMessage(data?.error));
         }
       } catch {}
       setSxLoading(false);
@@ -527,10 +536,10 @@ const CheaterSearch = () => {
           setSxDiscordUser(discordUserData);
         }
       } else {
-        setSxError(data?.error || 'Lookup failed');
+        setSxError(getExternalLookupMessage(data?.error));
       }
     } catch (err: any) {
-      setSxError(err.message || 'Failed to contact external source');
+      setSxError(getExternalLookupMessage(err.message));
     }
     setSxLoading(false);
   };
