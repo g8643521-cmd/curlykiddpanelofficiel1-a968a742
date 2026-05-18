@@ -124,6 +124,22 @@ const getExternalLookupMessage = (value?: string | null) => {
   return value;
 };
 
+const normalizeSxPayload = (response: any) => response?.data?.user ?? response?.data ?? response?.user ?? null;
+
+const normalizeSxDiscordUser = (response: any, payload: any) => {
+  const explicit = response?.data?.discord_user || response?.discord_user || payload?.discord_user;
+  if (explicit) return explicit;
+  if (!payload?.discordId) return null;
+  const username = Array.isArray(payload.usernames) ? payload.usernames[0]?.value : undefined;
+  return {
+    id: payload.discordId,
+    username: username || payload.globalName || payload.discordId,
+    global_name: payload.globalName || username || null,
+    avatar: payload.discordAvatarHash || null,
+    avatar_url: payload.avatarUrl || null,
+  };
+};
+
 const CheaterSearch = () => {
   const { isAdmin, isOwner } = useAdminStatus();
   const canUseAdminMode = isAdmin || isOwner;
@@ -370,9 +386,9 @@ const CheaterSearch = () => {
           body: { discord_id: query },
         });
         if (data?.success) {
-          sxData = data.data;
-          sxDiscordUserData = data.data?.discord_user || data.discord_user;
-          setSxResult(data.data);
+          sxData = normalizeSxPayload(data);
+          sxDiscordUserData = normalizeSxDiscordUser(data, sxData);
+          setSxResult(sxData);
           setSxDiscordUser(sxDiscordUserData || null);
         } else {
           setSxError(getExternalLookupMessage(data?.error));
@@ -504,9 +520,9 @@ const CheaterSearch = () => {
 
     // Send Discord webhook notification with full data
     const session = (await supabase.auth.getSession()).data.session;
-    const avatarUrl = sxDiscordUserData?.avatar && isDiscordId
+    const avatarUrl = sxDiscordUserData?.avatar_url || (sxDiscordUserData?.avatar && isDiscordId
       ? `https://cdn.discordapp.com/avatars/${query}/${sxDiscordUserData.avatar}.${sxDiscordUserData.avatar.startsWith('a_') ? 'gif' : 'png'}?size=128`
-      : null;
+      : null);
     const allTickets = [
       ...((sxData?.tickets as any[]) || []),
       ...((sxData?.tickets_v2 as any[]) || []),
