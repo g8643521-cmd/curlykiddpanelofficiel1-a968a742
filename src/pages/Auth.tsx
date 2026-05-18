@@ -493,16 +493,6 @@ const Auth = () => {
                           Recommended
                         </div>
 
-                        {/* Rotating conic-gradient border on hover */}
-                        <div
-                          aria-hidden
-                          className="pointer-events-none absolute -inset-[1.5px] rounded-xl opacity-0 group-hover/discord:opacity-100 transition-opacity duration-300 auth-conic-border"
-                        />
-                        {/* Soft glow halo */}
-                        <div
-                          aria-hidden
-                          className="pointer-events-none absolute -inset-1 rounded-xl bg-[#5865F2]/50 opacity-0 blur-xl transition-opacity duration-500 group-hover/discord:opacity-100 animate-pulse"
-                        />
 
                         <Button
                           type="button"
