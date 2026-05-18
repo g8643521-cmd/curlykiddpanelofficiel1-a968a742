@@ -1271,6 +1271,21 @@ export type Database = {
           table_name: string
         }[]
       }
+      public_lookup_bot_cheater: {
+        Args: { _discord_id: string }
+        Returns: {
+          detected_at: string
+          discord_avatar: string
+          discord_user_id: string
+          discord_username: string
+          guild_id: string
+          guild_name: string
+          is_flagged: boolean
+          summary_text: string
+          total_bans: number
+          total_tickets: number
+        }[]
+      }
       set_server_status: {
         Args: { _reason: string; _server_id: string; _status: string }
         Returns: undefined

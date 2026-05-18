@@ -397,6 +397,39 @@ const CheaterSearch = () => {
       }
     } catch {}
 
+    // Also search bot-detected cheaters when searching by Discord ID
+    if (isDiscordId) {
+      try {
+        const { data: botData } = await supabase.rpc('public_lookup_bot_cheater', { _discord_id: query });
+        if (Array.isArray(botData) && botData.length > 0) {
+          const mapped: CheaterReport[] = botData.map((b: any) => ({
+            id: `bot-${b.discord_user_id}-${b.guild_id ?? 'na'}-${b.detected_at ?? ''}`,
+            player_name: b.discord_username || b.discord_user_id,
+            player_identifiers: {
+              discord: b.discord_user_id,
+              discord_avatar: b.discord_avatar || undefined,
+              discord_username: b.discord_username || undefined,
+            },
+            server_code: null,
+            server_name: b.guild_name || null,
+            reason: b.summary_text || (b.is_flagged
+              ? 'Flagged by automated bot detection'
+              : `Detected by bot — ${b.total_bans ?? 0} bans, ${b.total_tickets ?? 0} tickets`),
+            evidence_url: null,
+            status: (b.is_flagged || (b.total_bans ?? 0) > 0) ? 'confirmed' : 'suspected',
+            created_at: b.detected_at || new Date().toISOString(),
+          }));
+          // Avoid duplicates if same Discord ID already in cheater_reports
+          const seen = new Set(typedData.map(c => c.player_identifiers?.discord).filter(Boolean));
+          for (const m of mapped) {
+            if (!seen.has(m.player_identifiers?.discord)) {
+              typedData.push(m);
+            }
+          }
+        }
+      } catch {}
+    }
+
 
 
     // Filter results by name OR any matching identifier
