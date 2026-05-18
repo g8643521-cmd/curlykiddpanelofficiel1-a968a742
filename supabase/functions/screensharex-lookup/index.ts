@@ -121,22 +121,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    const unavailablePayload = {
+      success: false,
+      unavailable: true,
+      error: "External screening is temporarily unavailable. Cheater DB results are still available.",
+      details: `Upstream lookup failed (status ${lastStatus || "n/a"}): ${lastBody}`,
+    };
+
     if (isPing) {
-      // For ping, treat upstream outage as a soft failure so the UI shows
-      // a meaningful status without throwing.
-      return json({
-        success: false,
-        error: `Upstream unreachable (status ${lastStatus || "n/a"})`,
-      });
+      return json(unavailablePayload);
     }
 
-    return json(
-      {
-        success: false,
-        error: `Upstream lookup failed (status ${lastStatus || "n/a"}): ${lastBody}`,
-      },
-      502,
-    );
+    return json(unavailablePayload);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return json({ success: false, error: message }, 500);
