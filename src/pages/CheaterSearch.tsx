@@ -115,6 +115,15 @@ const copyToClipboard = (text: string) => {
   toast.success('Copied to clipboard');
 };
 
+const EXTERNAL_LOOKUP_UNAVAILABLE = 'External screening is temporarily unavailable. Cheater DB results are still available.';
+
+const getExternalLookupMessage = (value?: string | null) => {
+  if (!value || /lookup failed|upstream|failed to contact|functionshttp|non-2xx/i.test(value)) {
+    return EXTERNAL_LOOKUP_UNAVAILABLE;
+  }
+  return value;
+};
+
 const CheaterSearch = () => {
   const { isAdmin, isOwner } = useAdminStatus();
   const canUseAdminMode = isAdmin || isOwner;
@@ -366,7 +375,7 @@ const CheaterSearch = () => {
           setSxResult(data.data);
           setSxDiscordUser(sxDiscordUserData || null);
         } else {
-          setSxError(data?.error || 'Lookup failed');
+          setSxError(getExternalLookupMessage(data?.error));
         }
       } catch {}
       setSxLoading(false);
@@ -527,10 +536,10 @@ const CheaterSearch = () => {
           setSxDiscordUser(discordUserData);
         }
       } else {
-        setSxError(data?.error || 'Lookup failed');
+        setSxError(getExternalLookupMessage(data?.error));
       }
     } catch (err: any) {
-      setSxError(err.message || 'Failed to contact external source');
+      setSxError(getExternalLookupMessage(err.message));
     }
     setSxLoading(false);
   };
@@ -1177,10 +1186,10 @@ const CheaterSearch = () => {
             )}
 
             {sxError && (
-              <div className="glass-card p-5 border border-destructive/20">
+              <div className="glass-card p-5 border border-primary/20 bg-primary/5">
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  Could not reach external source: {sxError}
+                  <Info className="w-4 h-4 text-primary" />
+                  {sxError}
                 </p>
               </div>
             )}
