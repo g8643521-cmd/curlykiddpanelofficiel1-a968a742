@@ -563,8 +563,10 @@ const CheaterSearch = () => {
       });
       if (error) throw error;
       if (data?.success) {
-        setSxResult(data.data);
-        const discordUserData = data.data?.discord_user || data.discord_user;
+        // screenshare.lol returns { data: { user: {...} } }; older shapes return the object directly
+        const payload = data.data?.user ?? data.data ?? null;
+        setSxResult(payload);
+        const discordUserData = data.data?.discord_user || payload?.discord_user || data.discord_user;
         if (discordUserData) {
           setSxDiscordUser(discordUserData);
         }
