@@ -1186,10 +1186,10 @@ const CheaterSearch = () => {
             )}
 
             {sxError && (
-              <div className="glass-card p-5 border border-destructive/20">
+              <div className="glass-card p-5 border border-primary/20 bg-primary/5">
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  Could not reach external source: {sxError}
+                  <Info className="w-4 h-4 text-primary" />
+                  {sxError}
                 </p>
               </div>
             )}
