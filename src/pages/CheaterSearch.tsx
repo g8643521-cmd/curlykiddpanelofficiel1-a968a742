@@ -580,9 +580,9 @@ const CheaterSearch = () => {
       if (error) throw error;
       if (data?.success) {
         // screenshare.lol returns { data: { user: {...} } }; older shapes return the object directly
-        const payload = data.data?.user ?? data.data ?? null;
+        const payload = normalizeSxPayload(data);
         setSxResult(payload);
-        const discordUserData = data.data?.discord_user || payload?.discord_user || data.discord_user;
+        const discordUserData = normalizeSxDiscordUser(data, payload);
         if (discordUserData) {
           setSxDiscordUser(discordUserData);
         }
