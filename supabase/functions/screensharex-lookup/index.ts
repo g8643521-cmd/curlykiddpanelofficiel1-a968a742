@@ -79,9 +79,9 @@ Deno.serve(async (req) => {
     // Try a few well-known endpoint shapes for the ScreenshareX API.
     // The first one that responds with JSON is used.
     const candidates = [
+      `https://screenshare.lol/api/public/v1/user?userId=${discord_id}`,
       `https://screensharex.ac/api/lookup/${discord_id}`,
       `https://screensharex.ac/api/v1/lookup/${discord_id}`,
-      `https://screensharex.ac/api/discord/${discord_id}`,
     ];
 
     let lastStatus = 0;
