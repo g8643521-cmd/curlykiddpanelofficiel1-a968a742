@@ -1392,19 +1392,30 @@ const CheaterSearch = () => {
                             const role = g.role || g.roleName || g.customerRole;
                             const flaggedAt = g.flaggedAt || g.flagged_at || g.lastEventAt;
                             const joined = g.joinedAt || g.joined_at;
-                            const icon = g.iconUrl || g.icon_url || g.icon;
+                            const icon = g.iconUrl || g.icon_url || (g.icon && gId ? `https://cdn.discordapp.com/icons/${gId}/${g.icon}.png?size=64` : null);
+                            // Derive a stable hue from the guild id/name so each server gets its own color badge
+                            const seed = String(gId || gName);
+                            let hash = 0;
+                            for (let c = 0; c < seed.length; c++) hash = (hash * 31 + seed.charCodeAt(c)) >>> 0;
+                            const hue = hash % 360;
+                            const initials = gName.replace(/[^a-zA-Z0-9]/g, ' ').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() || '?';
+                            const bgStyle = { background: `linear-gradient(135deg, hsl(${hue} 70% 22%), hsl(${(hue + 30) % 360} 75% 38%))` };
+                            const ringStyle = { boxShadow: `0 0 0 1px hsl(${hue} 80% 55% / 0.55), 0 0 12px hsl(${hue} 90% 55% / 0.25)` };
                             return (
                               <HoverCard key={`gicon-${i}`} openDelay={80} closeDelay={80}>
                                 <HoverCardTrigger asChild>
                                   <button
                                     type="button"
                                     aria-label={gName}
-                                    className="w-7 h-7 rounded-md bg-primary/10 border border-primary/30 hover:border-primary/70 hover:bg-primary/20 transition-colors flex items-center justify-center shrink-0 overflow-hidden"
+                                    style={ringStyle}
+                                    className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 overflow-hidden hover:scale-105 transition-transform"
                                   >
                                     {icon ? (
                                       <img src={icon} alt={gName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                     ) : (
-                                      <Server className="w-3.5 h-3.5 text-primary" />
+                                      <span style={bgStyle} className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white tracking-tight">
+                                        {initials}
+                                      </span>
                                     )}
                                   </button>
                                 </HoverCardTrigger>
@@ -1413,12 +1424,14 @@ const CheaterSearch = () => {
                                     {role && (
                                       <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.18em] mb-1">Customer</div>
                                     )}
-                                    <div className="flex items-center gap-2 mb-3">
-                                      <div className="w-8 h-8 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center overflow-hidden shrink-0">
+                                    <div className="flex items-center gap-2.5 mb-3">
+                                      <div style={ringStyle} className="w-10 h-10 rounded-md flex items-center justify-center overflow-hidden shrink-0">
                                         {icon ? (
                                           <img src={icon} alt={gName} className="w-full h-full object-cover" />
                                         ) : (
-                                          <Server className="w-4 h-4 text-primary" />
+                                          <span style={bgStyle} className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
+                                            {initials}
+                                          </span>
                                         )}
                                       </div>
                                       <div className="text-sm font-semibold text-foreground truncate">{gName}</div>
