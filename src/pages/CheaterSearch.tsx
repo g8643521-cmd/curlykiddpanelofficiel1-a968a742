@@ -45,6 +45,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -1379,7 +1384,77 @@ const CheaterSearch = () => {
                           <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.18em]">Discord Profile</span>
                           <Badge variant="outline" className="text-[9px] uppercase tracking-wider border-primary/30 bg-primary/10 text-primary px-1.5 py-0 h-4">Indexed</Badge>
                         </div>
-                        <h2 className="text-3xl font-bold text-foreground leading-tight">{username}</h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="text-3xl font-bold text-foreground leading-tight">{username}</h2>
+                          {guilds.slice(0, 8).map((g: any, i: number) => {
+                            const gName = String(g.guildName || g.name || g.guildId || 'Unknown');
+                            const gId = g.guildId || g.id;
+                            const role = g.role || g.roleName || g.customerRole;
+                            const flaggedAt = g.flaggedAt || g.flagged_at || g.lastEventAt;
+                            const joined = g.joinedAt || g.joined_at;
+                            const icon = g.iconUrl || g.icon_url || g.icon;
+                            return (
+                              <HoverCard key={`gicon-${i}`} openDelay={80} closeDelay={80}>
+                                <HoverCardTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label={gName}
+                                    className="w-7 h-7 rounded-md bg-primary/10 border border-primary/30 hover:border-primary/70 hover:bg-primary/20 transition-colors flex items-center justify-center shrink-0 overflow-hidden"
+                                  >
+                                    {icon ? (
+                                      <img src={icon} alt={gName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                    ) : (
+                                      <Server className="w-3.5 h-3.5 text-primary" />
+                                    )}
+                                  </button>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80 p-0 border-primary/30 bg-card/95 backdrop-blur-xl">
+                                  <div className="p-4 border-l-2 border-primary">
+                                    {role && (
+                                      <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.18em] mb-1">Customer</div>
+                                    )}
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <div className="w-8 h-8 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center overflow-hidden shrink-0">
+                                        {icon ? (
+                                          <img src={icon} alt={gName} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <Server className="w-4 h-4 text-primary" />
+                                        )}
+                                      </div>
+                                      <div className="text-sm font-semibold text-foreground truncate">{gName}</div>
+                                    </div>
+                                    {role && (
+                                      <div className="mb-3">
+                                        <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.18em] mb-1">Role</div>
+                                        <div className="text-sm text-foreground">{String(role)}</div>
+                                      </div>
+                                    )}
+                                    {flaggedAt && (
+                                      <div className="mb-2">
+                                        <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.18em] mb-1">Flagged at</div>
+                                        <div className="text-xs font-mono text-foreground/80">{fmtDateTime(flaggedAt)}</div>
+                                      </div>
+                                    )}
+                                    {joined && (
+                                      <div className="mb-2">
+                                        <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.18em] mb-1">Joined</div>
+                                        <div className="text-xs font-mono text-foreground/80">{fmtDateTime(joined)}</div>
+                                      </div>
+                                    )}
+                                    {gId && (
+                                      <div className="pt-2 mt-2 border-t border-border/30">
+                                        <div className="text-[10px] text-muted-foreground/60 font-mono break-all">{String(gId)}</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            );
+                          })}
+                          {guilds.length > 8 && (
+                            <span className="text-[11px] text-muted-foreground/60">+{guilds.length - 8}</span>
+                          )}
+                        </div>
                         {handle && <p className="text-sm text-muted-foreground/70 mt-0.5">@{handle}</p>}
                         <div className="flex items-center gap-2 mt-3">
                           <div className="px-2.5 py-1 rounded-md bg-background/50 border border-border/40 text-xs font-mono text-foreground/80">{discordId}</div>
