@@ -169,6 +169,13 @@ const CheaterSearch = () => {
   const [sxDiscordUser, setSxDiscordUser] = useState<any>(null);
   const [sxLoading, setSxLoading] = useState(false);
   const [sxError, setSxError] = useState<string | null>(null);
+  // Tab filter state
+  const [ticketsFilter, setTicketsFilter] = useState('');
+  const [ticketsEventFilter, setTicketsEventFilter] = useState<Set<string>>(new Set());
+  const [guildsFilter, setGuildsFilter] = useState('');
+  const [guildsEventFilter, setGuildsEventFilter] = useState<Set<string>>(new Set());
+  const [anticheatFilter, setAnticheatFilter] = useState('');
+  const [messagesFilter, setMessagesFilter] = useState('');
   // Hydrate from cache instantly so the pill renders with last-known latency on mount
   const _cachedSx = getCached('head:cheater_reports');
   const _cachedDb = getCached('head:mod_categories');
