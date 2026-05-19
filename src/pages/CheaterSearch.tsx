@@ -26,6 +26,8 @@ import {
   Clock,
   Activity,
   ArrowLeft,
+  MessageSquare,
+  Hash,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -169,6 +171,13 @@ const CheaterSearch = () => {
   const [sxDiscordUser, setSxDiscordUser] = useState<any>(null);
   const [sxLoading, setSxLoading] = useState(false);
   const [sxError, setSxError] = useState<string | null>(null);
+  // Tab filter state
+  const [ticketsFilter, setTicketsFilter] = useState('');
+  const [ticketsEventFilter, setTicketsEventFilter] = useState<Set<string>>(new Set());
+  const [guildsFilter, setGuildsFilter] = useState('');
+  const [guildsEventFilter, setGuildsEventFilter] = useState<Set<string>>(new Set());
+  const [anticheatFilter, setAnticheatFilter] = useState('');
+  const [messagesFilter, setMessagesFilter] = useState('');
   // Hydrate from cache instantly so the pill renders with last-known latency on mount
   const _cachedSx = getCached('head:cheater_reports');
   const _cachedDb = getCached('head:mod_categories');
@@ -1613,7 +1622,7 @@ const CheaterSearch = () => {
                     )}
                   </motion.div>
 
-                  {/* Tabs: Tickets / Guilds / Anti-cheat */}
+                  {/* Tabs: Tickets / Guilds / Anti-cheat / Messages */}
                   <Tabs defaultValue="tickets" className="w-full">
                     <TabsList className="bg-transparent border-b border-border/30 rounded-none w-full justify-start h-auto p-0 gap-1">
                       <TabsTrigger value="tickets" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:border-primary border-b-2 border-transparent rounded-none px-4 py-2.5 text-sm font-medium gap-2">
@@ -1625,116 +1634,240 @@ const CheaterSearch = () => {
                       <TabsTrigger value="anticheat" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:border-primary border-b-2 border-transparent rounded-none px-4 py-2.5 text-sm font-medium gap-2">
                         <Shield className="w-4 h-4" /> Anti-cheat
                       </TabsTrigger>
+                      <TabsTrigger value="messages" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:border-primary border-b-2 border-transparent rounded-none px-4 py-2.5 text-sm font-medium gap-2">
+                        <MessageSquare className="w-4 h-4" /> Messages
+                      </TabsTrigger>
                     </TabsList>
 
                     {/* Tickets tab */}
                     <TabsContent value="tickets" className="mt-4">
-                      <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
-                        <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
-                          <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
-                          <input placeholder="Filter events..." className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1" />
-                          <Badge variant="outline" className="text-[10px] border-border/40 text-muted-foreground/70 uppercase tracking-wider">Created</Badge>
-                        </div>
-                        {ticketTimeline.length === 0 && tickets.length === 0 ? (
-                          <div className="p-12 text-center">
-                            <Ticket className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-foreground">No ticket events</p>
-                            <p className="text-xs text-muted-foreground/60 mt-1">Nothing matched your filters, or there is no ticket history for this user.</p>
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full">
-                              <thead>
-                                <tr className="border-b border-border/30 bg-background/30">
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Account</th>
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Event</th>
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Ticket</th>
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Guild</th>
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Channel</th>
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">When</th>
-                                  <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Detail</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(ticketTimeline.length > 0 ? ticketTimeline : tickets.map((t: any) => ({
-                                  at: t.openedAt,
-                                  ticketId: t.id || t.channelId,
-                                  channelId: t.channelId,
-                                  guildId: t.guildId,
-                                  guildName: t.guildName,
-                                  detail: `As ${t.usernameAtTicket || handle || ''}`.trim(),
-                                  metadata: { summary: t.summary },
-                                  isLegacy: t.isLegacy,
-                                  type: 'ticket_created',
-                                }))).map((ev: any, i: number) => {
-                                  const eventLabel = String(ev.type || 'event').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-                                  const isCreated = String(ev.type || '').includes('created');
+                      {(() => {
+                        const baseRows = ticketTimeline.length > 0 ? ticketTimeline : tickets.map((t: any) => ({
+                          at: t.openedAt,
+                          ticketId: t.id || t.channelId,
+                          channelId: t.channelId,
+                          guildId: t.guildId,
+                          guildName: t.guildName,
+                          detail: `As ${t.usernameAtTicket || handle || ''}`.trim(),
+                          metadata: { summary: t.summary },
+                          isLegacy: t.isLegacy,
+                          type: 'ticket_created',
+                        }));
+                        const eventTypes = Array.from(new Set(baseRows.map((r: any) => {
+                          const t = String(r.type || '').toLowerCase();
+                          if (t.includes('renamed') || t.includes('rename')) return 'RENAMED';
+                          if (t.includes('created') || t.includes('open')) return 'CREATED';
+                          if (t.includes('closed')) return 'CLOSED';
+                          return String(r.type || 'EVENT').toUpperCase().replace(/_/g, ' ');
+                        })));
+                        const q = ticketsFilter.toLowerCase().trim();
+                        const filtered = baseRows.filter((ev: any) => {
+                          const t = String(ev.type || '').toLowerCase();
+                          const label = t.includes('renamed') ? 'RENAMED' : t.includes('created') || t.includes('open') ? 'CREATED' : t.includes('closed') ? 'CLOSED' : String(ev.type || 'EVENT').toUpperCase().replace(/_/g, ' ');
+                          if (ticketsEventFilter.size > 0 && !ticketsEventFilter.has(label)) return false;
+                          if (!q) return true;
+                          return [ev.ticketId, ev.channelId, ev.guildName, ev.guildId, ev.detail, ev.metadata?.summary].some((v: any) => v && String(v).toLowerCase().includes(q));
+                        });
+                        const toggleEv = (e: string) => {
+                          const next = new Set(ticketsEventFilter);
+                          if (next.has(e)) next.delete(e); else next.add(e);
+                          setTicketsEventFilter(next);
+                        };
+                        return (
+                          <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
+                            <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
+                              <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
+                              <input
+                                value={ticketsFilter}
+                                onChange={(e) => setTicketsFilter(e.target.value)}
+                                placeholder="Filter events..."
+                                className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1"
+                              />
+                              <div className="flex items-center gap-1.5">
+                                {eventTypes.map((ev) => {
+                                  const active = ticketsEventFilter.has(ev);
                                   return (
-                                    <tr key={ev.id || i} className="border-b border-border/15 hover:bg-primary/[0.03] transition-colors">
-                                      <td className="px-4 py-3">
-                                        <div className="text-sm font-semibold text-foreground">{username}</div>
-                                        <div className="text-[11px] text-muted-foreground/50 font-mono">{discordId}</div>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <Badge variant="outline" className={`text-[10px] uppercase tracking-wider font-bold ${isCreated ? 'bg-[hsl(var(--yellow))]/15 text-[hsl(var(--yellow))] border-[hsl(var(--yellow))]/30' : 'bg-muted text-muted-foreground border-border'}`}>
-                                          {isCreated ? 'Created' : eventLabel}
-                                        </Badge>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-sm font-mono text-foreground/80">{String(ev.ticketId || '—')}</span>
-                                          {ev.isLegacy && (
-                                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider bg-[hsl(var(--yellow))]/10 text-[hsl(var(--yellow))] border-[hsl(var(--yellow))]/30 px-1.5 py-0 h-4">Legacy</Badge>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <div className="text-sm font-semibold text-foreground">{String(ev.guildName || '—')}</div>
-                                        {ev.guildId && <div className="text-[11px] text-muted-foreground/50 font-mono">{String(ev.guildId)}</div>}
-                                      </td>
-                                      <td className="px-4 py-3 text-[11px] text-muted-foreground/60 font-mono">{ev.channelId ? String(ev.channelId).slice(0, 16) + '…' : '—'}</td>
-                                      <td className="px-4 py-3 text-sm text-foreground/80 whitespace-nowrap">{fmtDateTime(ev.at)}</td>
-                                      <td className="px-4 py-3">
-                                        <div className="text-sm text-foreground/80">{String(ev.detail || '—')}</div>
-                                        {ev.metadata?.summary && <div className="text-[11px] text-muted-foreground/50">summary:{String(ev.metadata.summary)}</div>}
-                                      </td>
-                                    </tr>
+                                    <button
+                                      key={ev}
+                                      onClick={() => toggleEv(ev)}
+                                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border transition-colors ${active ? 'bg-primary/15 text-primary border-primary/40' : 'bg-background/40 text-muted-foreground/70 border-border/40 hover:border-border/70'}`}
+                                    >
+                                      {ev}
+                                    </button>
                                   );
                                 })}
-                              </tbody>
-                            </table>
+                              </div>
+                            </div>
+                            {filtered.length === 0 ? (
+                              <div className="p-12 text-center">
+                                <Ticket className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
+                                <p className="text-sm font-medium text-foreground">No ticket events</p>
+                                <p className="text-xs text-muted-foreground/60 mt-1">Nothing matched your filters, or there is no ticket history for this user.</p>
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="border-b border-border/30 bg-background/30">
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Account</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Event</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Ticket</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Guild</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Channel</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">When</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Detail</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filtered.map((ev: any, i: number) => {
+                                      const t = String(ev.type || '').toLowerCase();
+                                      const isRenamed = t.includes('renamed');
+                                      const isCreated = t.includes('created') || t.includes('open');
+                                      const eventLabel = isRenamed ? 'Renamed' : isCreated ? 'Created' : String(ev.type || 'event').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                                      const evCls = isRenamed
+                                        ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
+                                        : isCreated
+                                          ? 'bg-primary/15 text-primary border-primary/30'
+                                          : 'bg-muted text-muted-foreground border-border';
+                                      return (
+                                        <tr key={ev.id || i} className="border-b border-border/15 hover:bg-primary/[0.03] transition-colors">
+                                          <td className="px-4 py-3">
+                                            <div className="text-sm font-semibold text-foreground">{username}</div>
+                                            <div className="text-[11px] text-primary/70 font-mono">{discordId}</div>
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <Badge variant="outline" className={`text-[10px] uppercase tracking-wider font-bold ${evCls}`}>
+                                              {eventLabel}
+                                            </Badge>
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm font-mono text-primary/80">{String(ev.ticketId || '—')}</span>
+                                              {ev.isLegacy && (
+                                                <Badge variant="outline" className="text-[9px] uppercase tracking-wider bg-[hsl(var(--yellow))]/10 text-[hsl(var(--yellow))] border-[hsl(var(--yellow))]/30 px-1.5 py-0 h-4">Legacy</Badge>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <div className="text-sm font-semibold text-foreground">{String(ev.guildName || '—')}</div>
+                                            {ev.guildId && <div className="text-[11px] text-primary/70 font-mono">{String(ev.guildId)}</div>}
+                                          </td>
+                                          <td className="px-4 py-3 text-[11px] text-primary/70 font-mono">{ev.channelId ? String(ev.channelId) : '—'}</td>
+                                          <td className="px-4 py-3 text-sm text-foreground/80 whitespace-nowrap">{fmtDateTime(ev.at)}</td>
+                                          <td className="px-4 py-3">
+                                            <div className="text-sm text-foreground/80">{String(ev.detail || '—')}</div>
+                                            {ev.metadata?.summary && <div className="text-[11px] text-muted-foreground/50">summary:{String(ev.metadata.summary)}</div>}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })()}
                     </TabsContent>
 
                     {/* Guilds tab */}
                     <TabsContent value="guilds" className="mt-4 space-y-4">
-                      <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
-                        <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
-                          <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
-                          <input placeholder="Filter guilds..." className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1" />
-                        </div>
-                        {guildEvents.length === 0 ? (
-                          <div className="p-12 text-center">
-                            <Users className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-foreground">No guild events</p>
-                            <p className="text-xs text-muted-foreground/60 mt-1">Nothing matched your filters, or there is no join/leave history for this user.</p>
-                          </div>
-                        ) : (
-                          <div className="divide-y divide-border/20">
-                            {guildEvents.map((ev: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-primary/[0.03] transition-colors">
-                                <div>
-                                  <div className="text-sm font-semibold text-foreground">{String(ev.guildName || ev.guildId || '—')}</div>
-                                  <div className="text-[11px] text-muted-foreground/60">{String(ev.type || 'event').replace(/_/g, ' ')}</div>
-                                </div>
-                                <div className="text-xs text-muted-foreground/70">{fmtDateTime(ev.at)}</div>
+                      {(() => {
+                        const q = guildsFilter.toLowerCase().trim();
+                        const filtered = guildEvents.filter((ev: any) => {
+                          const t = String(ev.type || '').toLowerCase();
+                          const label = t.includes('join') ? 'JOIN' : t.includes('leave') ? 'LEAVE' : t.includes('role') ? 'ROLES' : String(ev.type || 'EVENT').toUpperCase();
+                          if (guildsEventFilter.size > 0 && !guildsEventFilter.has(label)) return false;
+                          if (!q) return true;
+                          return [ev.guildName, ev.guildId, ev.type].some((v: any) => v && String(v).toLowerCase().includes(q));
+                        });
+                        const toggleEv = (e: string) => {
+                          const next = new Set(guildsEventFilter);
+                          if (next.has(e)) next.delete(e); else next.add(e);
+                          setGuildsEventFilter(next);
+                        };
+                        const evTypes = ['JOIN', 'LEAVE', 'ROLES'];
+                        return (
+                          <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
+                            <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
+                              <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
+                              <input
+                                value={guildsFilter}
+                                onChange={(e) => setGuildsFilter(e.target.value)}
+                                placeholder="Filter guilds..."
+                                className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1"
+                              />
+                              <div className="flex items-center gap-1.5">
+                                {evTypes.map((ev) => {
+                                  const active = guildsEventFilter.has(ev);
+                                  return (
+                                    <button
+                                      key={ev}
+                                      onClick={() => toggleEv(ev)}
+                                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border transition-colors ${active ? (ev === 'JOIN' ? 'bg-[hsl(var(--green))]/15 text-[hsl(var(--green))] border-[hsl(var(--green))]/40' : ev === 'LEAVE' ? 'bg-destructive/15 text-destructive border-destructive/40' : 'bg-primary/15 text-primary border-primary/40') : 'bg-background/40 text-muted-foreground/70 border-border/40 hover:border-border/70'}`}
+                                    >
+                                      {ev}
+                                    </button>
+                                  );
+                                })}
                               </div>
-                            ))}
+                            </div>
+                            {filtered.length === 0 ? (
+                              <div className="p-12 text-center">
+                                <Users className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
+                                <p className="text-sm font-medium text-foreground">No guild events</p>
+                                <p className="text-xs text-muted-foreground/60 mt-1">Nothing matched your filters, or there is no join/leave history for this user.</p>
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="border-b border-border/30 bg-background/30">
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Account</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Event</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Guild</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Guild ID</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">Roles</th>
+                                      <th className="text-left text-[10px] font-bold text-muted-foreground/70 uppercase tracking-[0.12em] px-4 py-2.5">When</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filtered.map((ev: any, i: number) => {
+                                      const t = String(ev.type || '').toLowerCase();
+                                      const isJoin = t.includes('join');
+                                      const isLeave = t.includes('leave');
+                                      const label = isJoin ? 'JOIN' : isLeave ? 'LEAVE' : t.includes('role') ? 'ROLES' : String(ev.type || 'EVENT').toUpperCase();
+                                      const evCls = isJoin
+                                        ? 'bg-[hsl(var(--green))]/15 text-[hsl(var(--green))] border-[hsl(var(--green))]/30'
+                                        : isLeave
+                                          ? 'bg-destructive/15 text-destructive border-destructive/30'
+                                          : 'bg-primary/15 text-primary border-primary/30';
+                                      const roleCount = Array.isArray(ev.roles) ? ev.roles.length : (typeof ev.roleCount === 'number' ? ev.roleCount : 0);
+                                      return (
+                                        <tr key={i} className="border-b border-border/15 hover:bg-primary/[0.03] transition-colors">
+                                          <td className="px-4 py-3">
+                                            <div className="text-sm font-semibold text-foreground">{username}</div>
+                                            <div className="text-[11px] text-primary/70 font-mono">{discordId}</div>
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <Badge variant="outline" className={`text-[10px] uppercase tracking-wider font-bold ${evCls}`}>
+                                              {label}
+                                            </Badge>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm font-semibold text-foreground">{String(ev.guildName || '—')}</td>
+                                          <td className="px-4 py-3 text-[11px] text-primary/70 font-mono">{String(ev.guildId || '—')}</td>
+                                          <td className="px-4 py-3 text-xs text-muted-foreground/80">{roleCount > 0 ? `${roleCount} role${roleCount === 1 ? '' : 's'}` : '—'}</td>
+                                          <td className="px-4 py-3 text-sm text-foreground/80 whitespace-nowrap">{fmtDateTime(ev.at)}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })()}
 
                       <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
                         <div className="px-4 py-3 border-b border-border/30">
@@ -1746,15 +1879,19 @@ const CheaterSearch = () => {
                           </div>
                         ) : (
                           <div className="divide-y divide-border/20">
-                            {guilds.map((g: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between px-4 py-3">
-                                <div className="text-sm text-foreground">{String(g.guildName || g.name || g.guildId || '—')}</div>
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary)/0.4)]" />
-                                  <span className="text-[11px] font-medium text-primary">Active</span>
+                            {guilds.map((g: any, i: number) => {
+                              const joined = g.joinedAt || g.joined_at;
+                              return (
+                                <div key={i} className="flex items-center justify-between px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--green))] shadow-[0_0_6px_hsl(var(--green)/0.5)]" />
+                                    <span className="text-sm font-semibold text-foreground">{String(g.guildName || g.name || g.guildId || '—')}</span>
+                                    {joined && <span className="text-[11px] font-mono text-muted-foreground/60 ml-1">{fmtDateTime(joined)}</span>}
+                                  </div>
+                                  <span className="text-[10px] font-bold text-[hsl(var(--green))] uppercase tracking-wider">Active</span>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1762,30 +1899,64 @@ const CheaterSearch = () => {
 
                     {/* Anti-cheat tab */}
                     <TabsContent value="anticheat" className="mt-4">
+                      {(() => {
+                        const q = anticheatFilter.toLowerCase().trim();
+                        const filtered = flags.filter((f: any) => {
+                          if (!q) return true;
+                          return [f.label, f.type, f.name, f.detail].some((v: any) => v && String(v).toLowerCase().includes(q));
+                        });
+                        return (
+                          <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
+                            <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
+                              <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
+                              <input
+                                value={anticheatFilter}
+                                onChange={(e) => setAnticheatFilter(e.target.value)}
+                                placeholder="Filter records..."
+                                className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1"
+                              />
+                            </div>
+                            {filtered.length === 0 ? (
+                              <div className="p-12 text-center">
+                                <Shield className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
+                                <p className="text-sm font-medium text-foreground">No anti-cheat records</p>
+                                <p className="text-xs text-muted-foreground/60 mt-1">Nothing matched your filters, or this user has no indexed anti-cheat data.</p>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-border/20">
+                                {filtered.map((f: any, i: number) => (
+                                  <div key={i} className="px-4 py-3 hover:bg-primary/[0.03] transition-colors">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-semibold text-foreground">{String(f.label || f.type || f.name || 'Flag')}</span>
+                                      {f.at && <span className="text-xs text-muted-foreground/70">{fmtDateTime(f.at)}</span>}
+                                    </div>
+                                    {f.detail && <p className="text-xs text-muted-foreground/70 mt-1">{String(f.detail)}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </TabsContent>
+
+                    {/* Messages tab */}
+                    <TabsContent value="messages" className="mt-4">
                       <div className="rounded-xl border border-border/40 bg-card/30 backdrop-blur-sm overflow-hidden">
                         <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
                           <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
-                          <input placeholder="Filter records..." className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1" />
+                          <input
+                            value={messagesFilter}
+                            onChange={(e) => setMessagesFilter(e.target.value)}
+                            placeholder="Filter messages..."
+                            className="bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/50 flex-1"
+                          />
                         </div>
-                        {flags.length === 0 ? (
-                          <div className="p-12 text-center">
-                            <Shield className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-foreground">No anti-cheat records</p>
-                            <p className="text-xs text-muted-foreground/60 mt-1">Nothing matched your filters, or this user has no indexed anti-cheat data.</p>
-                          </div>
-                        ) : (
-                          <div className="divide-y divide-border/20">
-                            {flags.map((f: any, i: number) => (
-                              <div key={i} className="px-4 py-3 hover:bg-primary/[0.03] transition-colors">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-semibold text-foreground">{String(f.label || f.type || f.name || 'Flag')}</span>
-                                  {f.at && <span className="text-xs text-muted-foreground/70">{fmtDateTime(f.at)}</span>}
-                                </div>
-                                {f.detail && <p className="text-xs text-muted-foreground/70 mt-1">{String(f.detail)}</p>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div className="p-12 text-center">
+                          <MessageSquare className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
+                          <p className="text-sm font-medium text-foreground">No messages indexed</p>
+                          <p className="text-xs text-muted-foreground/60 mt-1">This user has no indexed message history in the external screening database.</p>
+                        </div>
                       </div>
                     </TabsContent>
                   </Tabs>
