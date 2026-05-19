@@ -45,6 +45,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
