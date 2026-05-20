@@ -409,39 +409,36 @@ const Auth = () => {
             </div>
 
             {/* Social proof — recently joined avatars */}
-            <div className="flex items-center justify-center gap-3 mb-7">
-              <div className="flex -space-x-2">
-                {[
-                  "https://cdn.discordapp.com/avatars/1207296555011547187/3e7e7ed3a590e2448b0d6a24c1b0de01.png?size=64",
-                  "https://lh3.googleusercontent.com/a/ACg8ocKPOSVNoY4NArl9jaOPxEWw2Wsj4uwuatb4WxX5i1HCdZg_yMY=s96-c",
-                  "https://cnpezmgbajusgnrivnua.supabase.co/storage/v1/object/public/avatars/e50f803d-d56f-4c1e-826a-4439da3fe3ac/avatar.webp?t=1776352834647",
-                  "https://lh3.googleusercontent.com/a/ACg8ocLodp-TPZNfV2clBmTI5G_B9UfAoZB8tgXWGzQVp9Z3r4PXjtLQ=s96-c",
-                  "https://lh3.googleusercontent.com/a/ACg8ocI0aD2DkNzZUujGyWLSZbAgagJJDOu6VPFwmuijXiOsdxmePQ=s96-c",
-                ].map((src, i) => (
-                  <div
-                    key={src}
-                    className="relative w-7 h-7 rounded-full border-2 border-background overflow-hidden bg-muted ring-1 ring-border/40 transition-transform hover:-translate-y-0.5 hover:scale-110 hover:z-10"
-                    style={{ zIndex: 5 - i }}
-                  >
-                    <img src={src} alt="" loading="lazy" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  </div>
-                ))}
-                <div className="relative w-7 h-7 rounded-full border-2 border-background bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-[9px] font-bold text-foreground/90 ring-1 ring-border/40">
-                  +12
-                </div>
-              </div>
-              <div className="text-left">
-                <div className="flex items-center gap-1 text-[11px]">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" strokeWidth={0} />
+            {recentAvatars.length > 0 && (
+              <div className="flex items-center justify-center gap-3 mb-7">
+                <div className="flex -space-x-2">
+                  {recentAvatars.map((src, i) => (
+                    <div
+                      key={src + i}
+                      className="relative w-7 h-7 rounded-full border-2 border-background overflow-hidden bg-muted ring-1 ring-border/40 transition-transform hover:-translate-y-0.5 hover:scale-110 hover:z-10"
+                      style={{ zIndex: recentAvatars.length - i }}
+                    >
+                      <img src={src} alt="" loading="lazy" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
                   ))}
-                  <span className="text-foreground/90 font-semibold ml-0.5">4.9</span>
+                  {joinedThisWeek > recentAvatars.length && (
+                    <div className="relative w-7 h-7 rounded-full border-2 border-background bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-[9px] font-bold text-foreground/90 ring-1 ring-border/40">
+                      +{joinedThisWeek - recentAvatars.length}
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10.5px] text-muted-foreground/70 leading-tight mt-0.5">
-                  Joined this week
-                </p>
+                <div className="text-left">
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <TrendingUp className="w-3 h-3 text-emerald-400" strokeWidth={2.5} />
+                    <span className="text-foreground/90 font-semibold ml-0.5">{joinedThisWeek}</span>
+                    <span className="text-muted-foreground/70">new member{joinedThisWeek === 1 ? "" : "s"}</span>
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground/70 leading-tight mt-0.5">
+                    Joined this week
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Auth card */}
             <div className="relative group/card">
