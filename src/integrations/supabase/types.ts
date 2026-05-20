@@ -1223,6 +1223,7 @@ export type Database = {
     Functions: {
       _attach_audit_trigger: { Args: { _table: unknown }; Returns: undefined }
       get_cheater_stats: { Args: never; Returns: Json }
+      get_login_social_proof: { Args: never; Returns: Json }
       get_my_server_webhooks: {
         Args: never
         Returns: {
