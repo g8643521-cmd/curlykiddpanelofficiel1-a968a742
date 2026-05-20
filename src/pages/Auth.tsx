@@ -49,6 +49,34 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const processedDiscordCode = useRef<string | null>(null);
+  const [recentAvatars, setRecentAvatars] = useState<string[]>([]);
+  const [joinedThisWeek, setJoinedThisWeek] = useState<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [avatarsRes, countRes] = await Promise.all([
+        (supabase as any)
+          .from("profiles_public")
+          .select("avatar_url, discord_avatar")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        (supabase as any)
+          .from("profiles_public")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceIso),
+      ]);
+      if (cancelled) return;
+      const urls = ((avatarsRes.data || []) as { avatar_url: string | null; discord_avatar: string | null }[])
+        .map((p) => p.avatar_url || p.discord_avatar)
+        .filter((u): u is string => !!u)
+        .slice(0, 5);
+      setRecentAvatars(urls);
+      setJoinedThisWeek(countRes.count ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Visibility flags loaded from admin_settings (Discord-only by default)
   const [isReturning] = useState(() => {
