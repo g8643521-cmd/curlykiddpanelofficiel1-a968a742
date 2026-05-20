@@ -55,25 +55,11 @@ const Auth = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const [avatarsRes, countRes] = await Promise.all([
-        (supabase as any)
-          .from("profiles_public")
-          .select("avatar_url, discord_avatar")
-          .order("created_at", { ascending: false })
-          .limit(20),
-        (supabase as any)
-          .from("profiles_public")
-          .select("id", { count: "exact", head: true })
-          .gte("created_at", sinceIso),
-      ]);
-      if (cancelled) return;
-      const urls = ((avatarsRes.data || []) as { avatar_url: string | null; discord_avatar: string | null }[])
-        .map((p) => p.avatar_url || p.discord_avatar)
-        .filter((u): u is string => !!u)
-        .slice(0, 5);
-      setRecentAvatars(urls);
-      setJoinedThisWeek(countRes.count ?? 0);
+      const { data, error } = await (supabase as any).rpc('get_login_social_proof');
+      if (cancelled || error || !data) return;
+      const avatars = Array.isArray(data.avatars) ? (data.avatars as string[]).filter(Boolean) : [];
+      setRecentAvatars(avatars);
+      setJoinedThisWeek(typeof data.joined_this_week === 'number' ? data.joined_this_week : 0);
     })();
     return () => { cancelled = true; };
   }, []);
