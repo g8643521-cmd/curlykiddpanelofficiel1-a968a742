@@ -38,6 +38,11 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const backup = body?.backup;
+    const dryRun: boolean = body?.dryRun === true;
+    const strategy: "upsert" | "skip" | "replace" =
+      body?.strategy === "skip" || body?.strategy === "replace" ? body.strategy : "upsert";
+    const allowedTables: string[] | null = Array.isArray(body?.tables) && body.tables.length > 0 ? body.tables : null;
+
     if (!backup || typeof backup !== "object") {
       return new Response(JSON.stringify({ error: "Invalid backup payload" }), {
         status: 400,
@@ -45,7 +50,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const tableResults: Array<{ table: string; rows: number }> = [];
+    const tableResults: Array<{ table: string; rows: number; skipped?: number; errors?: number }> = [];
     const ignoredKeys: string[] = [];
     let totalRows = 0;
     let totalTables = 0;
@@ -56,23 +61,49 @@ Deno.serve(async (req) => {
         continue;
       }
       if (!Array.isArray(value)) continue;
+      if (allowedTables && !allowedTables.includes(key)) continue;
       totalTables += 1;
+
+      if (dryRun) {
+        tableResults.push({ table: key, rows: value.length });
+        totalRows += value.length;
+        continue;
+      }
+
       let inserted = 0;
+      let errors = 0;
+
+      if (strategy === "replace" && value.length > 0) {
+        // Truncate by deleting all rows (RLS bypassed by service role)
+        await admin.from(key).delete().not("id", "is", null);
+      }
+
       if (value.length > 0) {
-        // chunk inserts
         const chunkSize = 500;
         for (let i = 0; i < value.length; i += chunkSize) {
           const chunk = value.slice(i, i + chunkSize);
-          const { error } = await admin.from(key).upsert(chunk, { onConflict: "id" });
-          if (!error) inserted += chunk.length;
+          if (strategy === "skip") {
+            const { error, count } = await admin
+              .from(key)
+              .insert(chunk, { count: "exact" })
+              .select("id", { count: "exact", head: true });
+            if (error) errors += chunk.length;
+            else inserted += count ?? chunk.length;
+          } else {
+            const { error } = await admin.from(key).upsert(chunk, { onConflict: "id" });
+            if (error) errors += chunk.length;
+            else inserted += chunk.length;
+          }
         }
       }
       totalRows += inserted;
-      tableResults.push({ table: key, rows: inserted });
+      tableResults.push({ table: key, rows: inserted, errors });
     }
 
     return new Response(
       JSON.stringify({
+        dryRun,
+        strategy,
         tablesImported: totalTables,
         rowsImported: totalRows,
         tableResults,
