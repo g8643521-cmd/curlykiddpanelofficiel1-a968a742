@@ -66,7 +66,7 @@ async function sha256Hex(data: ArrayBuffer | Uint8Array | string): Promise<strin
   const buf =
     typeof data === 'string' ? new TextEncoder().encode(data) :
     data instanceof Uint8Array ? data : new Uint8Array(data);
-  const hash = await crypto.subtle.digest('SHA-256', buf);
+  const hash = await crypto.subtle.digest('SHA-256', buf as any);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
