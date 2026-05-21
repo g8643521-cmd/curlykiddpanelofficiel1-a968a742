@@ -366,7 +366,7 @@ const DatabaseExportPanel = () => {
   const ingestFile = async (file: File, pw?: string) => {
     setIsImporting(true);
     try {
-      let bytes = new Uint8Array(await file.arrayBuffer());
+      let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer());
       const name = file.name.toLowerCase();
 
       if (name.endsWith('.enc')) {
