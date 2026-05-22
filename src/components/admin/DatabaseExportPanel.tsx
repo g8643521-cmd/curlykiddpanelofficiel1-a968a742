@@ -621,21 +621,38 @@ const DatabaseExportPanel = () => {
 
       {/* Stats */}
       <div className="px-6 pt-6">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <StatCard icon={<Table2 className="h-4 w-4" />} label="Tables" value={isLoadingTables ? null : tables.length} />
           <StatCard icon={<Check className="h-4 w-4" />} label="Selected" value={selectedTables.size} accent />
           <StatCard icon={<HardDrive className="h-4 w-4" />} label="Total Rows" value={isLoadingCounts ? null : totalRows.toLocaleString()} />
           <StatCard icon={<FileArchive className="h-4 w-4" />} label="Est. Size" value={formatBytes(estimatedSize)} />
           <StatCard icon={<Shield className="h-4 w-4" />} label="RLS" value="Protected" />
+          <StatCard
+            icon={<Heart className={`h-4 w-4 ${backupHealth === 'fresh' ? 'text-emerald-400' : backupHealth === 'aging' ? 'text-amber-400' : 'text-destructive'}`} />}
+            label="Backup Health"
+            value={lastBackupAgeDays === null ? 'No backup' : lastBackupAgeDays === 0 ? 'Today' : `${lastBackupAgeDays}d ago`}
+          />
         </div>
+        {scheduleDue && (
+          <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 flex items-center gap-2">
+            <BellRing className="h-4 w-4 text-amber-400 shrink-0" />
+            <p className="text-[11px] text-foreground flex-1">
+              Scheduled backup is due — last backup was <strong>{lastBackupAgeDays}d</strong> ago (interval {schedule.intervalDays}d).
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
       <div className="p-6">
         <Tabs defaultValue="export" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="export" className="gap-1.5"><Download className="h-3.5 w-3.5" />Export</TabsTrigger>
             <TabsTrigger value="import" className="gap-1.5"><Upload className="h-3.5 w-3.5" />Import</TabsTrigger>
+            <TabsTrigger value="verify" className="gap-1.5"><FileSearch className="h-3.5 w-3.5" />Verify</TabsTrigger>
+            <TabsTrigger value="schedule" className="gap-1.5"><BellRing className="h-3.5 w-3.5" />Schedule
+              {scheduleDue && <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />}
+            </TabsTrigger>
             <TabsTrigger value="tables" className="gap-1.5"><Table2 className="h-3.5 w-3.5" />Tables</TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5"><History className="h-3.5 w-3.5" />History
               {history.length > 0 && <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">{history.length}</Badge>}
