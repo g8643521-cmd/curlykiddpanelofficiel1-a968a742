@@ -327,8 +327,10 @@ const DatabaseExportPanel = () => {
     if (selectedTables.size === 0) { toast.error('Select at least one table'); return; }
     if (encrypt && password.length < 8) { toast.error('Encryption requires a password (min. 8 chars)'); return; }
 
+    const step = (pct: number, msg: string) => { setExportPct(pct); setExportProgress(msg); };
+
     setIsExporting(true);
-    setExportProgress('Requesting backup from server…');
+    step(5, 'Requesting backup from server…');
 
     try {
       const tablesToExport = Array.from(selectedTables);
@@ -338,48 +340,50 @@ const DatabaseExportPanel = () => {
 
       if (error || (data as any)?.error) {
         toast.error((data as any)?.error || error?.message || 'Export failed');
-        setIsExporting(false); setExportProgress(''); return;
+        setIsExporting(false); setExportProgress(''); setExportPct(0); return;
       }
 
+      step(40, 'Server payload received');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const baseName = `curlykidd-backup-${timestamp}`;
 
       if (format === 'csv') {
-        setExportProgress('Writing CSV files…');
+        step(80, 'Writing CSV files…');
         for (const [table, csvString] of Object.entries(data as Record<string, string>)) {
           if (!csvString || typeof csvString !== 'string') continue;
           downloadBlob(new Blob([csvString], { type: 'text/csv' }), `${table}-${timestamp}.csv`);
         }
+        step(100, 'Done');
         toast.success(`Exported ${tablesToExport.length} CSV files`);
-        setIsExporting(false); setExportProgress(''); return;
+        setIsExporting(false); setExportProgress(''); setExportPct(0); return;
       }
 
-      // JSON path: serialize → checksum → optional gzip → optional encrypt
-      setExportProgress('Serializing JSON…');
+      step(50, 'Serializing JSON…');
       const json = JSON.stringify(data, null, 2);
       let bytes: Uint8Array = new TextEncoder().encode(json);
       const rawSize = bytes.length;
+      step(60, 'Computing SHA-256 checksum…');
       const checksum = await sha256Hex(json);
       let mime = 'application/json';
       let filename = `${baseName}.json`;
 
       if (compress) {
-        setExportProgress('Compressing (gzip)…');
+        step(70, 'Compressing (gzip)…');
         bytes = await gzipCompress(bytes);
         mime = 'application/gzip';
         filename = `${baseName}.json.gz`;
       }
       if (encrypt) {
-        setExportProgress('Encrypting (AES-256-GCM)…');
+        step(85, 'Encrypting (AES-256-GCM)…');
         bytes = await encryptPayload(bytes, password);
         mime = 'application/octet-stream';
         filename = `${baseName}${compress ? '.json.gz' : '.json'}.enc`;
       }
 
+      step(95, 'Writing file…');
       const blob = new Blob([bytes as BlobPart], { type: mime });
       downloadBlob(blob, filename);
 
-      // Save sidecar checksum
       const sidecar = JSON.stringify({
         filename, checksum_sha256: checksum, raw_bytes: rawSize, stored_bytes: bytes.length,
         compressed: compress, encrypted: encrypt, created_at: new Date().toISOString(),
@@ -387,22 +391,111 @@ const DatabaseExportPanel = () => {
       }, null, 2);
       downloadBlob(new Blob([sidecar], { type: 'application/json' }), `${baseName}.manifest.json`);
 
-      // History
       const entry: BackupHistoryEntry = {
         id: crypto.randomUUID(),
         filename, createdAt: new Date().toISOString(),
         tableCount: tablesToExport.length, rowCount: selectedRows,
         sizeBytes: bytes.length, format, compressed: compress, encrypted: encrypt, checksum,
+        tables: tablesToExport, rawBytes: rawSize,
       };
       const next = [entry, ...history];
       setHistory(next); saveHistory(next);
 
+      const nextSchedule = { ...schedule, lastReminderAt: new Date().toISOString() };
+      setSchedule(nextSchedule); saveSchedule(nextSchedule);
+
+      step(100, 'Done');
       toast.success(`Backup ready — ${formatBytes(bytes.length)} • SHA-256 ${checksum.slice(0, 8)}…`);
     } catch (e: any) {
       toast.error(e?.message || 'Export failed');
     }
-    setIsExporting(false); setExportProgress('');
+    setIsExporting(false); setExportProgress(''); setExportPct(0);
   };
+
+  // ----- Verify -----
+  const triggerVerify = () => verifyInputRef.current?.click();
+  const handleVerifyFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsVerifying(true); setVerifyResult(null);
+    try {
+      const raw = new Uint8Array(await file.arrayBuffer());
+      const storedChecksum = await sha256Hex(raw);
+      const name = file.name.toLowerCase();
+      let format: VerifyResult['format'] = 'unknown';
+      if (name.endsWith('.enc')) format = 'encrypted';
+      else if (name.endsWith('.gz')) format = 'gzip';
+      else if (name.endsWith('.json')) format = 'json';
+
+      let tables: string[] | undefined;
+      let rowCount: number | undefined;
+      let parsedOk: boolean | undefined;
+      let parseError: string | undefined;
+      try {
+        let working = raw;
+        if (format === 'gzip') working = await gzipDecompress(raw);
+        if (format === 'json' || format === 'gzip') {
+          const parsed = JSON.parse(new TextDecoder().decode(working));
+          parsedOk = typeof parsed === 'object' && parsed !== null;
+          if (parsedOk) {
+            tables = Object.keys(parsed).filter(k => !k.startsWith('_') && Array.isArray(parsed[k]));
+            rowCount = tables.reduce((s, k) => s + (Array.isArray(parsed[k]) ? parsed[k].length : 0), 0);
+          }
+        }
+      } catch (err: any) {
+        parsedOk = false; parseError = err?.message || 'Parse failed';
+      }
+
+      const expected = verifyExpected.trim().toLowerCase();
+      const match = expected ? expected === storedChecksum.toLowerCase() : undefined;
+
+      setVerifyResult({
+        filename: file.name, sizeBytes: raw.length, checksum: storedChecksum,
+        expected: expected || undefined, match, format, tables, rowCount, parsedOk, error: parseError,
+      });
+      if (expected) {
+        match ? toast.success('Checksum matches — file is intact')
+              : toast.error('Checksum mismatch — file is corrupted or modified');
+      } else {
+        toast.success('Verification complete');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Verification failed');
+    }
+    setIsVerifying(false);
+    if (verifyInputRef.current) verifyInputRef.current.value = '';
+  };
+
+  // ----- History notes / actions -----
+  const updateNote = (id: string, note: string) => {
+    const next = history.map(h => h.id === id ? { ...h, note } : h);
+    setHistory(next); saveHistory(next);
+    setEditingNoteId(null); setNoteDraft('');
+  };
+  const copyChecksum = async (checksum: string) => {
+    try { await navigator.clipboard.writeText(checksum); toast.success('Checksum copied'); }
+    catch { toast.error('Copy failed'); }
+  };
+  const redownloadManifest = (h: BackupHistoryEntry) => {
+    const manifest = JSON.stringify({
+      filename: h.filename, checksum_sha256: h.checksum,
+      raw_bytes: h.rawBytes ?? null, stored_bytes: h.sizeBytes,
+      compressed: h.compressed, encrypted: h.encrypted,
+      created_at: h.createdAt, tables: h.tables ?? [], rows: h.rowCount,
+      note: h.note ?? null,
+    }, null, 2);
+    downloadBlob(new Blob([manifest], { type: 'application/json' }),
+      h.filename.replace(/\.(json|gz|enc)+$/i, '') + '.manifest.json');
+  };
+
+  // ----- Schedule -----
+  const lastBackupAt = history[0]?.createdAt ?? null;
+  const lastBackupAgeDays = daysSince(lastBackupAt);
+  const scheduleDue = schedule.enabled && lastBackupAgeDays !== null && lastBackupAgeDays >= schedule.intervalDays;
+  const backupHealth: 'fresh' | 'aging' | 'stale' | 'none' =
+    lastBackupAgeDays === null ? 'none'
+    : lastBackupAgeDays <= 1 ? 'fresh'
+    : lastBackupAgeDays <= 7 ? 'aging' : 'stale';
 
   // ----- Import -----
   const triggerFile = () => fileInputRef.current?.click();
