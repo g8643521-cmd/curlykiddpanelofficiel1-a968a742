@@ -1069,31 +1069,62 @@ const DatabaseExportPanel = () => {
             ) : (
               <div className="space-y-2">
                 {history.map(h => (
-                  <div key={h.id} className="rounded-lg border border-border/30 bg-secondary/10 p-3 flex items-center gap-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
-                      h.encrypted ? 'bg-amber-500/10 text-amber-400' : h.compressed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
-                    }`}>
-                      {h.encrypted ? <Lock className="h-4 w-4" /> : h.compressed ? <FileArchive className="h-4 w-4" /> : <FileJson className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono text-foreground truncate">{h.filename}</p>
-                      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{new Date(h.createdAt).toLocaleString()}</span>
-                        <span className="flex items-center gap-1"><Table2 className="h-2.5 w-2.5" />{h.tableCount} tables</span>
-                        <span className="flex items-center gap-1"><HardDrive className="h-2.5 w-2.5" />{h.rowCount.toLocaleString()} rows</span>
-                        <span>{formatBytes(h.sizeBytes)}</span>
+                  <div key={h.id} className="rounded-lg border border-border/30 bg-secondary/10 p-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
+                        h.encrypted ? 'bg-amber-500/10 text-amber-400' : h.compressed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
+                      }`}>
+                        {h.encrypted ? <Lock className="h-4 w-4" /> : h.compressed ? <FileArchive className="h-4 w-4" /> : <FileJson className="h-4 w-4" />}
                       </div>
-                      <p className="text-[9px] font-mono text-muted-foreground/70 mt-0.5 truncate">
-                        <Hash className="h-2.5 w-2.5 inline mr-1" />{h.checksum}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-mono text-foreground truncate">{h.filename}</p>
+                        <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{new Date(h.createdAt).toLocaleString()}</span>
+                          <span className="flex items-center gap-1"><Table2 className="h-2.5 w-2.5" />{h.tableCount} tables</span>
+                          <span className="flex items-center gap-1"><HardDrive className="h-2.5 w-2.5" />{h.rowCount.toLocaleString()} rows</span>
+                          <span>{formatBytes(h.sizeBytes)}</span>
+                        </div>
+                        <button
+                          onClick={() => copyChecksum(h.checksum)}
+                          className="text-[9px] font-mono text-muted-foreground/70 mt-0.5 truncate hover:text-primary transition-colors flex items-center gap-1 w-full text-left"
+                          title="Click to copy"
+                        >
+                          <Hash className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{h.checksum}</span>
+                          <CopyIcon className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                        </button>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {h.compressed && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-emerald-500/30 text-emerald-400">GZIP</Badge>}
+                        {h.encrypted && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-500/30 text-amber-400">AES-256</Badge>}
+                      </div>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => redownloadManifest(h)} title="Re-download manifest">
+                          <FileCheck2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingNoteId(h.id); setNoteDraft(h.note || ''); }} title="Edit note">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeHistoryEntry(h.id)} title="Delete">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      {h.compressed && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-emerald-500/30 text-emerald-400">GZIP</Badge>}
-                      {h.encrypted && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-500/30 text-amber-400">AES-256</Badge>}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeHistoryEntry(h.id)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+                    {editingNoteId === h.id ? (
+                      <div className="flex gap-1.5 pl-12">
+                        <Input
+                          value={noteDraft}
+                          onChange={e => setNoteDraft(e.target.value)}
+                          placeholder="Add a note (e.g. pre-migration snapshot)…"
+                          className="h-7 text-[11px]"
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter') updateNote(h.id, noteDraft); if (e.key === 'Escape') { setEditingNoteId(null); setNoteDraft(''); } }}
+                        />
+                        <Button size="sm" className="h-7 text-[10px]" onClick={() => updateNote(h.id, noteDraft)}>Save</Button>
+                      </div>
+                    ) : h.note ? (
+                      <p className="pl-12 text-[10px] text-muted-foreground italic">"{h.note}"</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
