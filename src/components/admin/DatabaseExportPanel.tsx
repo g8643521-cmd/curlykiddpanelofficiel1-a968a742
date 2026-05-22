@@ -150,6 +150,20 @@ function loadHistory(): BackupHistoryEntry[] {
 function saveHistory(entries: BackupHistoryEntry[]) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
 }
+function loadSchedule(): ScheduleConfig {
+  try {
+    const s = JSON.parse(localStorage.getItem(SCHEDULE_KEY) || 'null');
+    if (s && typeof s === 'object') return { enabled: !!s.enabled, intervalDays: Number(s.intervalDays) || 7, lastReminderAt: s.lastReminderAt || null };
+  } catch { /* noop */ }
+  return { enabled: false, intervalDays: 7, lastReminderAt: null };
+}
+function saveSchedule(s: ScheduleConfig) {
+  localStorage.setItem(SCHEDULE_KEY, JSON.stringify(s));
+}
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
