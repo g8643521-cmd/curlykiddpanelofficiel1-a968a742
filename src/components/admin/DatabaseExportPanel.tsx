@@ -433,7 +433,7 @@ const DatabaseExportPanel = () => {
       let parseError: string | undefined;
       try {
         let working: Uint8Array = raw;
-        if (format === 'gzip') working = await gzipDecompress(raw);
+        if (format === 'gzip') working = (await gzipDecompress(raw)) as Uint8Array;
         if (format === 'json' || format === 'gzip') {
           const parsed = JSON.parse(new TextDecoder().decode(working));
           parsedOk = typeof parsed === 'object' && parsed !== null;
