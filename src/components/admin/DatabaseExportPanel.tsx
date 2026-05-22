@@ -718,7 +718,16 @@ const DatabaseExportPanel = () => {
                   {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   {isExporting ? (exportProgress || 'Exporting…') : `Export ${selectedTables.size} table${selectedTables.size !== 1 ? 's' : ''}`}
                 </Button>
-                {selectedTables.size === 0 && (
+                {isExporting && (
+                  <div className="space-y-1 -mt-2">
+                    <Progress value={exportPct} className="h-1.5" />
+                    <p className="text-[10px] text-muted-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{exportProgress}</span>
+                      <span className="tabular-nums">{exportPct}%</span>
+                    </p>
+                  </div>
+                )}
+                {selectedTables.size === 0 && !isExporting && (
                   <p className="text-[10px] text-amber-400/80 flex items-center gap-1 -mt-2">
                     <Info className="h-3 w-3" /> Select tables in the Tables tab first.
                   </p>
