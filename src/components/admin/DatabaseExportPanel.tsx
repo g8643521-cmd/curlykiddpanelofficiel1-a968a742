@@ -841,6 +841,128 @@ const DatabaseExportPanel = () => {
             )}
           </TabsContent>
 
+          {/* === VERIFY === */}
+          <TabsContent value="verify" className="space-y-5 mt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-4">
+                <SectionLabel icon={<FileSearch className="h-3 w-3" />}>Integrity Verification</SectionLabel>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Recompute the SHA-256 of any backup file and compare it to the checksum from its manifest.
+                  Detects bit-rot, corrupted downloads and tampered backups. Also reports table count and row totals.
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected SHA-256 (optional)</Label>
+                  <Input
+                    value={verifyExpected} onChange={e => setVerifyExpected(e.target.value)}
+                    placeholder="Paste checksum from manifest…"
+                    className="h-8 text-[11px] font-mono bg-background/60"
+                  />
+                </div>
+                <input ref={verifyInputRef} type="file" onChange={handleVerifyFile} className="hidden" />
+                <Button onClick={triggerVerify} disabled={isVerifying} className="w-full h-10 rounded-lg">
+                  {isVerifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSearch className="h-4 w-4 mr-2" />}
+                  Select file to verify
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-3">
+                <SectionLabel icon={<Hash className="h-3 w-3" />}>Result</SectionLabel>
+                {!verifyResult ? (
+                  <div className="rounded-lg border border-dashed border-border/40 p-6 text-center">
+                    <FileSearch className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-[11px] text-muted-foreground">No file verified yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-xs">
+                    <SummaryRow label="File" value={<span className="font-mono text-[10px] truncate max-w-[180px] inline-block align-bottom">{verifyResult.filename}</span>} />
+                    <SummaryRow label="Size" value={formatBytes(verifyResult.sizeBytes)} />
+                    <SummaryRow label="Format" value={verifyResult.format.toUpperCase()} />
+                    {verifyResult.tables && (
+                      <SummaryRow label="Tables in file" value={verifyResult.tables.length} />
+                    )}
+                    {verifyResult.rowCount !== undefined && (
+                      <SummaryRow label="Rows in file" value={verifyResult.rowCount.toLocaleString()} />
+                    )}
+                    <div className="rounded-lg bg-background/50 p-2 mt-2">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">SHA-256</p>
+                      <p className="text-[10px] font-mono break-all text-foreground">{verifyResult.checksum}</p>
+                    </div>
+                    {verifyResult.expected && (
+                      <div className={`rounded-lg p-2 flex items-center gap-2 ${verifyResult.match ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                        {verifyResult.match
+                          ? <><CheckCircle2 className="h-4 w-4 text-emerald-400" /><span className="text-[11px] font-semibold text-emerald-400">Checksum matches — file intact</span></>
+                          : <><AlertTriangle className="h-4 w-4 text-destructive" /><span className="text-[11px] font-semibold text-destructive">Mismatch — file corrupted or tampered</span></>}
+                      </div>
+                    )}
+                    {verifyResult.error && (
+                      <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-[10px] text-destructive">
+                        Parse error: {verifyResult.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* === SCHEDULE === */}
+          <TabsContent value="schedule" className="space-y-5 mt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-4">
+                <SectionLabel icon={<BellRing className="h-3 w-3" />}>Backup Reminder</SectionLabel>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Get reminded in the admin panel when a fresh backup is overdue.
+                  Reminders are visual only — no automatic exports are performed on this client.
+                </p>
+                <ToggleRow
+                  icon={<BellRing className="h-4 w-4 text-amber-400" />}
+                  title="Enable reminder"
+                  desc="Show a banner when the last backup is older than the interval below."
+                  checked={schedule.enabled}
+                  onCheckedChange={(v: boolean) => { const n = { ...schedule, enabled: v }; setSchedule(n); saveSchedule(n); }}
+                />
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Interval (days)</Label>
+                  <div className="flex gap-1.5">
+                    {[1, 3, 7, 14, 30].map(d => (
+                      <Button
+                        key={d}
+                        variant={schedule.intervalDays === d ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-8 text-[11px] flex-1"
+                        onClick={() => { const n = { ...schedule, intervalDays: d }; setSchedule(n); saveSchedule(n); }}
+                      >
+                        {d}d
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-3">
+                <SectionLabel icon={<Activity className="h-3 w-3" />}>Status</SectionLabel>
+                <div className="space-y-2 text-xs">
+                  <SummaryRow label="Reminder" value={schedule.enabled ? <Badge className="h-4 px-1.5 text-[9px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">ON</Badge> : <Badge variant="outline" className="h-4 px-1.5 text-[9px]">OFF</Badge>} />
+                  <SummaryRow label="Interval" value={`${schedule.intervalDays} days`} />
+                  <SummaryRow label="Last backup" value={lastBackupAt ? new Date(lastBackupAt).toLocaleString() : 'Never'} />
+                  <SummaryRow label="Age" value={lastBackupAgeDays === null ? '—' : `${lastBackupAgeDays}d`} />
+                  <SummaryRow label="Next due in" value={
+                    !schedule.enabled || lastBackupAgeDays === null ? '—'
+                    : `${Math.max(0, schedule.intervalDays - lastBackupAgeDays)}d`
+                  } />
+                </div>
+                {scheduleDue && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-start gap-2">
+                    <BellRing className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-foreground">
+                      A backup is overdue. Open the Export tab and run a backup to refresh the schedule.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
           {/* === TABLES === */}
           <TabsContent value="tables" className="space-y-4 mt-0">
             <div className="flex flex-wrap items-center gap-2">
