@@ -196,6 +196,20 @@ const DatabaseExportPanel = () => {
   const [password, setPassword] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
+  const [exportPct, setExportPct] = useState(0);
+
+  // Verify
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyExpected, setVerifyExpected] = useState('');
+  const verifyInputRef = useRef<HTMLInputElement>(null);
+
+  // Schedule
+  const [schedule, setSchedule] = useState<ScheduleConfig>(() => loadSchedule());
+
+  // Notes
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
 
   // Import
   const [isImporting, setIsImporting] = useState(false);
