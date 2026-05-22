@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCircle2, Shield, Clock,
+  Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCircle2, Shield,
   HardDrive, Table2, Info, RefreshCw, AlertTriangle, TimerOff, Search, Lock, Unlock, FileArchive,
-  Hash, History, Eye, Trash2, FileWarning, Sparkles, Check, X, ChevronDown, ChevronRight,
-  ShieldAlert, Zap, Calendar, FileCheck2, GitCompareArrows,
+  Hash, History, Eye, Trash2, FileWarning, Sparkles, Check, X, ChevronRight,
+  ShieldAlert, Zap, Calendar, FileCheck2, GitCompareArrows, BellRing, Heart, Activity,
+  FileSearch, Pencil, Copy as CopyIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -41,6 +43,9 @@ type BackupHistoryEntry = {
   compressed: boolean;
   encrypted: boolean;
   checksum: string;
+  tables?: string[];
+  rawBytes?: number;
+  note?: string;
 };
 type ImportPreview = {
   dryRun: boolean;
@@ -50,8 +55,26 @@ type ImportPreview = {
   tableResults: Array<{ table: string; rows: number; errors?: number }>;
   ignoredKeys: string[];
 };
+type VerifyResult = {
+  filename: string;
+  sizeBytes: number;
+  checksum: string;
+  expected?: string;
+  match?: boolean;
+  format: 'json' | 'gzip' | 'encrypted' | 'unknown';
+  tables?: string[];
+  rowCount?: number;
+  parsedOk?: boolean;
+  error?: string;
+};
+type ScheduleConfig = {
+  enabled: boolean;
+  intervalDays: number;
+  lastReminderAt: string | null;
+};
 
 const HISTORY_KEY = 'ck_backup_history_v1';
+const SCHEDULE_KEY = 'ck_backup_schedule_v1';
 const MAX_HISTORY = 25;
 
 // ---------- Utilities ----------
