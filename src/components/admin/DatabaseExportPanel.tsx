@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCircle2, Shield, Clock,
+  Download, Upload, Loader2, Database, FileJson, FileSpreadsheet, CheckCircle2, Shield,
   HardDrive, Table2, Info, RefreshCw, AlertTriangle, TimerOff, Search, Lock, Unlock, FileArchive,
-  Hash, History, Eye, Trash2, FileWarning, Sparkles, Check, X, ChevronDown, ChevronRight,
-  ShieldAlert, Zap, Calendar, FileCheck2, GitCompareArrows,
+  Hash, History, Eye, Trash2, FileWarning, Sparkles, Check, X, ChevronRight,
+  ShieldAlert, Zap, Calendar, FileCheck2, GitCompareArrows, BellRing, Heart, Activity,
+  FileSearch, Pencil, Copy as CopyIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -41,6 +43,9 @@ type BackupHistoryEntry = {
   compressed: boolean;
   encrypted: boolean;
   checksum: string;
+  tables?: string[];
+  rawBytes?: number;
+  note?: string;
 };
 type ImportPreview = {
   dryRun: boolean;
@@ -50,8 +55,26 @@ type ImportPreview = {
   tableResults: Array<{ table: string; rows: number; errors?: number }>;
   ignoredKeys: string[];
 };
+type VerifyResult = {
+  filename: string;
+  sizeBytes: number;
+  checksum: string;
+  expected?: string;
+  match?: boolean;
+  format: 'json' | 'gzip' | 'encrypted' | 'unknown';
+  tables?: string[];
+  rowCount?: number;
+  parsedOk?: boolean;
+  error?: string;
+};
+type ScheduleConfig = {
+  enabled: boolean;
+  intervalDays: number;
+  lastReminderAt: string | null;
+};
 
 const HISTORY_KEY = 'ck_backup_history_v1';
+const SCHEDULE_KEY = 'ck_backup_schedule_v1';
 const MAX_HISTORY = 25;
 
 // ---------- Utilities ----------
@@ -127,6 +150,20 @@ function loadHistory(): BackupHistoryEntry[] {
 function saveHistory(entries: BackupHistoryEntry[]) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
 }
+function loadSchedule(): ScheduleConfig {
+  try {
+    const s = JSON.parse(localStorage.getItem(SCHEDULE_KEY) || 'null');
+    if (s && typeof s === 'object') return { enabled: !!s.enabled, intervalDays: Number(s.intervalDays) || 7, lastReminderAt: s.lastReminderAt || null };
+  } catch { /* noop */ }
+  return { enabled: false, intervalDays: 7, lastReminderAt: null };
+}
+function saveSchedule(s: ScheduleConfig) {
+  localStorage.setItem(SCHEDULE_KEY, JSON.stringify(s));
+}
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -159,6 +196,20 @@ const DatabaseExportPanel = () => {
   const [password, setPassword] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
+  const [exportPct, setExportPct] = useState(0);
+
+  // Verify
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyExpected, setVerifyExpected] = useState('');
+  const verifyInputRef = useRef<HTMLInputElement>(null);
+
+  // Schedule
+  const [schedule, setSchedule] = useState<ScheduleConfig>(() => loadSchedule());
+
+  // Notes
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
 
   // Import
   const [isImporting, setIsImporting] = useState(false);
@@ -276,8 +327,10 @@ const DatabaseExportPanel = () => {
     if (selectedTables.size === 0) { toast.error('Select at least one table'); return; }
     if (encrypt && password.length < 8) { toast.error('Encryption requires a password (min. 8 chars)'); return; }
 
+    const step = (pct: number, msg: string) => { setExportPct(pct); setExportProgress(msg); };
+
     setIsExporting(true);
-    setExportProgress('Requesting backup from server…');
+    step(5, 'Requesting backup from server…');
 
     try {
       const tablesToExport = Array.from(selectedTables);
@@ -287,48 +340,50 @@ const DatabaseExportPanel = () => {
 
       if (error || (data as any)?.error) {
         toast.error((data as any)?.error || error?.message || 'Export failed');
-        setIsExporting(false); setExportProgress(''); return;
+        setIsExporting(false); setExportProgress(''); setExportPct(0); return;
       }
 
+      step(40, 'Server payload received');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const baseName = `curlykidd-backup-${timestamp}`;
 
       if (format === 'csv') {
-        setExportProgress('Writing CSV files…');
+        step(80, 'Writing CSV files…');
         for (const [table, csvString] of Object.entries(data as Record<string, string>)) {
           if (!csvString || typeof csvString !== 'string') continue;
           downloadBlob(new Blob([csvString], { type: 'text/csv' }), `${table}-${timestamp}.csv`);
         }
+        step(100, 'Done');
         toast.success(`Exported ${tablesToExport.length} CSV files`);
-        setIsExporting(false); setExportProgress(''); return;
+        setIsExporting(false); setExportProgress(''); setExportPct(0); return;
       }
 
-      // JSON path: serialize → checksum → optional gzip → optional encrypt
-      setExportProgress('Serializing JSON…');
+      step(50, 'Serializing JSON…');
       const json = JSON.stringify(data, null, 2);
       let bytes: Uint8Array = new TextEncoder().encode(json);
       const rawSize = bytes.length;
+      step(60, 'Computing SHA-256 checksum…');
       const checksum = await sha256Hex(json);
       let mime = 'application/json';
       let filename = `${baseName}.json`;
 
       if (compress) {
-        setExportProgress('Compressing (gzip)…');
+        step(70, 'Compressing (gzip)…');
         bytes = await gzipCompress(bytes);
         mime = 'application/gzip';
         filename = `${baseName}.json.gz`;
       }
       if (encrypt) {
-        setExportProgress('Encrypting (AES-256-GCM)…');
+        step(85, 'Encrypting (AES-256-GCM)…');
         bytes = await encryptPayload(bytes, password);
         mime = 'application/octet-stream';
         filename = `${baseName}${compress ? '.json.gz' : '.json'}.enc`;
       }
 
+      step(95, 'Writing file…');
       const blob = new Blob([bytes as BlobPart], { type: mime });
       downloadBlob(blob, filename);
 
-      // Save sidecar checksum
       const sidecar = JSON.stringify({
         filename, checksum_sha256: checksum, raw_bytes: rawSize, stored_bytes: bytes.length,
         compressed: compress, encrypted: encrypt, created_at: new Date().toISOString(),
@@ -336,22 +391,111 @@ const DatabaseExportPanel = () => {
       }, null, 2);
       downloadBlob(new Blob([sidecar], { type: 'application/json' }), `${baseName}.manifest.json`);
 
-      // History
       const entry: BackupHistoryEntry = {
         id: crypto.randomUUID(),
         filename, createdAt: new Date().toISOString(),
         tableCount: tablesToExport.length, rowCount: selectedRows,
         sizeBytes: bytes.length, format, compressed: compress, encrypted: encrypt, checksum,
+        tables: tablesToExport, rawBytes: rawSize,
       };
       const next = [entry, ...history];
       setHistory(next); saveHistory(next);
 
+      const nextSchedule = { ...schedule, lastReminderAt: new Date().toISOString() };
+      setSchedule(nextSchedule); saveSchedule(nextSchedule);
+
+      step(100, 'Done');
       toast.success(`Backup ready — ${formatBytes(bytes.length)} • SHA-256 ${checksum.slice(0, 8)}…`);
     } catch (e: any) {
       toast.error(e?.message || 'Export failed');
     }
-    setIsExporting(false); setExportProgress('');
+    setIsExporting(false); setExportProgress(''); setExportPct(0);
   };
+
+  // ----- Verify -----
+  const triggerVerify = () => verifyInputRef.current?.click();
+  const handleVerifyFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsVerifying(true); setVerifyResult(null);
+    try {
+      const raw = new Uint8Array(await file.arrayBuffer());
+      const storedChecksum = await sha256Hex(raw);
+      const name = file.name.toLowerCase();
+      let format: VerifyResult['format'] = 'unknown';
+      if (name.endsWith('.enc')) format = 'encrypted';
+      else if (name.endsWith('.gz')) format = 'gzip';
+      else if (name.endsWith('.json')) format = 'json';
+
+      let tables: string[] | undefined;
+      let rowCount: number | undefined;
+      let parsedOk: boolean | undefined;
+      let parseError: string | undefined;
+      try {
+        let working: Uint8Array = raw;
+        if (format === 'gzip') working = (await gzipDecompress(raw)) as Uint8Array;
+        if (format === 'json' || format === 'gzip') {
+          const parsed = JSON.parse(new TextDecoder().decode(working));
+          parsedOk = typeof parsed === 'object' && parsed !== null;
+          if (parsedOk) {
+            tables = Object.keys(parsed).filter(k => !k.startsWith('_') && Array.isArray(parsed[k]));
+            rowCount = tables.reduce((s, k) => s + (Array.isArray(parsed[k]) ? parsed[k].length : 0), 0);
+          }
+        }
+      } catch (err: any) {
+        parsedOk = false; parseError = err?.message || 'Parse failed';
+      }
+
+      const expected = verifyExpected.trim().toLowerCase();
+      const match = expected ? expected === storedChecksum.toLowerCase() : undefined;
+
+      setVerifyResult({
+        filename: file.name, sizeBytes: raw.length, checksum: storedChecksum,
+        expected: expected || undefined, match, format, tables, rowCount, parsedOk, error: parseError,
+      });
+      if (expected) {
+        match ? toast.success('Checksum matches — file is intact')
+              : toast.error('Checksum mismatch — file is corrupted or modified');
+      } else {
+        toast.success('Verification complete');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Verification failed');
+    }
+    setIsVerifying(false);
+    if (verifyInputRef.current) verifyInputRef.current.value = '';
+  };
+
+  // ----- History notes / actions -----
+  const updateNote = (id: string, note: string) => {
+    const next = history.map(h => h.id === id ? { ...h, note } : h);
+    setHistory(next); saveHistory(next);
+    setEditingNoteId(null); setNoteDraft('');
+  };
+  const copyChecksum = async (checksum: string) => {
+    try { await navigator.clipboard.writeText(checksum); toast.success('Checksum copied'); }
+    catch { toast.error('Copy failed'); }
+  };
+  const redownloadManifest = (h: BackupHistoryEntry) => {
+    const manifest = JSON.stringify({
+      filename: h.filename, checksum_sha256: h.checksum,
+      raw_bytes: h.rawBytes ?? null, stored_bytes: h.sizeBytes,
+      compressed: h.compressed, encrypted: h.encrypted,
+      created_at: h.createdAt, tables: h.tables ?? [], rows: h.rowCount,
+      note: h.note ?? null,
+    }, null, 2);
+    downloadBlob(new Blob([manifest], { type: 'application/json' }),
+      h.filename.replace(/\.(json|gz|enc)+$/i, '') + '.manifest.json');
+  };
+
+  // ----- Schedule -----
+  const lastBackupAt = history[0]?.createdAt ?? null;
+  const lastBackupAgeDays = daysSince(lastBackupAt);
+  const scheduleDue = schedule.enabled && lastBackupAgeDays !== null && lastBackupAgeDays >= schedule.intervalDays;
+  const backupHealth: 'fresh' | 'aging' | 'stale' | 'none' =
+    lastBackupAgeDays === null ? 'none'
+    : lastBackupAgeDays <= 1 ? 'fresh'
+    : lastBackupAgeDays <= 7 ? 'aging' : 'stale';
 
   // ----- Import -----
   const triggerFile = () => fileInputRef.current?.click();
@@ -477,21 +621,38 @@ const DatabaseExportPanel = () => {
 
       {/* Stats */}
       <div className="px-6 pt-6">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <StatCard icon={<Table2 className="h-4 w-4" />} label="Tables" value={isLoadingTables ? null : tables.length} />
           <StatCard icon={<Check className="h-4 w-4" />} label="Selected" value={selectedTables.size} accent />
           <StatCard icon={<HardDrive className="h-4 w-4" />} label="Total Rows" value={isLoadingCounts ? null : totalRows.toLocaleString()} />
           <StatCard icon={<FileArchive className="h-4 w-4" />} label="Est. Size" value={formatBytes(estimatedSize)} />
           <StatCard icon={<Shield className="h-4 w-4" />} label="RLS" value="Protected" />
+          <StatCard
+            icon={<Heart className={`h-4 w-4 ${backupHealth === 'fresh' ? 'text-emerald-400' : backupHealth === 'aging' ? 'text-amber-400' : 'text-destructive'}`} />}
+            label="Backup Health"
+            value={lastBackupAgeDays === null ? 'No backup' : lastBackupAgeDays === 0 ? 'Today' : `${lastBackupAgeDays}d ago`}
+          />
         </div>
+        {scheduleDue && (
+          <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 flex items-center gap-2">
+            <BellRing className="h-4 w-4 text-amber-400 shrink-0" />
+            <p className="text-[11px] text-foreground flex-1">
+              Scheduled backup is due — last backup was <strong>{lastBackupAgeDays}d</strong> ago (interval {schedule.intervalDays}d).
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
       <div className="p-6">
         <Tabs defaultValue="export" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="export" className="gap-1.5"><Download className="h-3.5 w-3.5" />Export</TabsTrigger>
             <TabsTrigger value="import" className="gap-1.5"><Upload className="h-3.5 w-3.5" />Import</TabsTrigger>
+            <TabsTrigger value="verify" className="gap-1.5"><FileSearch className="h-3.5 w-3.5" />Verify</TabsTrigger>
+            <TabsTrigger value="schedule" className="gap-1.5"><BellRing className="h-3.5 w-3.5" />Schedule
+              {scheduleDue && <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />}
+            </TabsTrigger>
             <TabsTrigger value="tables" className="gap-1.5"><Table2 className="h-3.5 w-3.5" />Tables</TabsTrigger>
             <TabsTrigger value="history" className="gap-1.5"><History className="h-3.5 w-3.5" />History
               {history.length > 0 && <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">{history.length}</Badge>}
@@ -557,7 +718,16 @@ const DatabaseExportPanel = () => {
                   {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   {isExporting ? (exportProgress || 'Exporting…') : `Export ${selectedTables.size} table${selectedTables.size !== 1 ? 's' : ''}`}
                 </Button>
-                {selectedTables.size === 0 && (
+                {isExporting && (
+                  <div className="space-y-1 -mt-2">
+                    <Progress value={exportPct} className="h-1.5" />
+                    <p className="text-[10px] text-muted-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{exportProgress}</span>
+                      <span className="tabular-nums">{exportPct}%</span>
+                    </p>
+                  </div>
+                )}
+                {selectedTables.size === 0 && !isExporting && (
                   <p className="text-[10px] text-amber-400/80 flex items-center gap-1 -mt-2">
                     <Info className="h-3 w-3" /> Select tables in the Tables tab first.
                   </p>
@@ -671,6 +841,128 @@ const DatabaseExportPanel = () => {
             )}
           </TabsContent>
 
+          {/* === VERIFY === */}
+          <TabsContent value="verify" className="space-y-5 mt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-4">
+                <SectionLabel icon={<FileSearch className="h-3 w-3" />}>Integrity Verification</SectionLabel>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Recompute the SHA-256 of any backup file and compare it to the checksum from its manifest.
+                  Detects bit-rot, corrupted downloads and tampered backups. Also reports table count and row totals.
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected SHA-256 (optional)</Label>
+                  <Input
+                    value={verifyExpected} onChange={e => setVerifyExpected(e.target.value)}
+                    placeholder="Paste checksum from manifest…"
+                    className="h-8 text-[11px] font-mono bg-background/60"
+                  />
+                </div>
+                <input ref={verifyInputRef} type="file" onChange={handleVerifyFile} className="hidden" />
+                <Button onClick={triggerVerify} disabled={isVerifying} className="w-full h-10 rounded-lg">
+                  {isVerifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSearch className="h-4 w-4 mr-2" />}
+                  Select file to verify
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-3">
+                <SectionLabel icon={<Hash className="h-3 w-3" />}>Result</SectionLabel>
+                {!verifyResult ? (
+                  <div className="rounded-lg border border-dashed border-border/40 p-6 text-center">
+                    <FileSearch className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-[11px] text-muted-foreground">No file verified yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-xs">
+                    <SummaryRow label="File" value={<span className="font-mono text-[10px] truncate max-w-[180px] inline-block align-bottom">{verifyResult.filename}</span>} />
+                    <SummaryRow label="Size" value={formatBytes(verifyResult.sizeBytes)} />
+                    <SummaryRow label="Format" value={verifyResult.format.toUpperCase()} />
+                    {verifyResult.tables && (
+                      <SummaryRow label="Tables in file" value={verifyResult.tables.length} />
+                    )}
+                    {verifyResult.rowCount !== undefined && (
+                      <SummaryRow label="Rows in file" value={verifyResult.rowCount.toLocaleString()} />
+                    )}
+                    <div className="rounded-lg bg-background/50 p-2 mt-2">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">SHA-256</p>
+                      <p className="text-[10px] font-mono break-all text-foreground">{verifyResult.checksum}</p>
+                    </div>
+                    {verifyResult.expected && (
+                      <div className={`rounded-lg p-2 flex items-center gap-2 ${verifyResult.match ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+                        {verifyResult.match
+                          ? <><CheckCircle2 className="h-4 w-4 text-emerald-400" /><span className="text-[11px] font-semibold text-emerald-400">Checksum matches — file intact</span></>
+                          : <><AlertTriangle className="h-4 w-4 text-destructive" /><span className="text-[11px] font-semibold text-destructive">Mismatch — file corrupted or tampered</span></>}
+                      </div>
+                    )}
+                    {verifyResult.error && (
+                      <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-[10px] text-destructive">
+                        Parse error: {verifyResult.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* === SCHEDULE === */}
+          <TabsContent value="schedule" className="space-y-5 mt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-4">
+                <SectionLabel icon={<BellRing className="h-3 w-3" />}>Backup Reminder</SectionLabel>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Get reminded in the admin panel when a fresh backup is overdue.
+                  Reminders are visual only — no automatic exports are performed on this client.
+                </p>
+                <ToggleRow
+                  icon={<BellRing className="h-4 w-4 text-amber-400" />}
+                  title="Enable reminder"
+                  desc="Show a banner when the last backup is older than the interval below."
+                  checked={schedule.enabled}
+                  onCheckedChange={(v: boolean) => { const n = { ...schedule, enabled: v }; setSchedule(n); saveSchedule(n); }}
+                />
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Interval (days)</Label>
+                  <div className="flex gap-1.5">
+                    {[1, 3, 7, 14, 30].map(d => (
+                      <Button
+                        key={d}
+                        variant={schedule.intervalDays === d ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-8 text-[11px] flex-1"
+                        onClick={() => { const n = { ...schedule, intervalDays: d }; setSchedule(n); saveSchedule(n); }}
+                      >
+                        {d}d
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-3">
+                <SectionLabel icon={<Activity className="h-3 w-3" />}>Status</SectionLabel>
+                <div className="space-y-2 text-xs">
+                  <SummaryRow label="Reminder" value={schedule.enabled ? <Badge className="h-4 px-1.5 text-[9px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">ON</Badge> : <Badge variant="outline" className="h-4 px-1.5 text-[9px]">OFF</Badge>} />
+                  <SummaryRow label="Interval" value={`${schedule.intervalDays} days`} />
+                  <SummaryRow label="Last backup" value={lastBackupAt ? new Date(lastBackupAt).toLocaleString() : 'Never'} />
+                  <SummaryRow label="Age" value={lastBackupAgeDays === null ? '—' : `${lastBackupAgeDays}d`} />
+                  <SummaryRow label="Next due in" value={
+                    !schedule.enabled || lastBackupAgeDays === null ? '—'
+                    : `${Math.max(0, schedule.intervalDays - lastBackupAgeDays)}d`
+                  } />
+                </div>
+                {scheduleDue && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-start gap-2">
+                    <BellRing className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-foreground">
+                      A backup is overdue. Open the Export tab and run a backup to refresh the schedule.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
           {/* === TABLES === */}
           <TabsContent value="tables" className="space-y-4 mt-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -777,31 +1069,62 @@ const DatabaseExportPanel = () => {
             ) : (
               <div className="space-y-2">
                 {history.map(h => (
-                  <div key={h.id} className="rounded-lg border border-border/30 bg-secondary/10 p-3 flex items-center gap-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
-                      h.encrypted ? 'bg-amber-500/10 text-amber-400' : h.compressed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
-                    }`}>
-                      {h.encrypted ? <Lock className="h-4 w-4" /> : h.compressed ? <FileArchive className="h-4 w-4" /> : <FileJson className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono text-foreground truncate">{h.filename}</p>
-                      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{new Date(h.createdAt).toLocaleString()}</span>
-                        <span className="flex items-center gap-1"><Table2 className="h-2.5 w-2.5" />{h.tableCount} tables</span>
-                        <span className="flex items-center gap-1"><HardDrive className="h-2.5 w-2.5" />{h.rowCount.toLocaleString()} rows</span>
-                        <span>{formatBytes(h.sizeBytes)}</span>
+                  <div key={h.id} className="rounded-lg border border-border/30 bg-secondary/10 p-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
+                        h.encrypted ? 'bg-amber-500/10 text-amber-400' : h.compressed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-primary/10 text-primary'
+                      }`}>
+                        {h.encrypted ? <Lock className="h-4 w-4" /> : h.compressed ? <FileArchive className="h-4 w-4" /> : <FileJson className="h-4 w-4" />}
                       </div>
-                      <p className="text-[9px] font-mono text-muted-foreground/70 mt-0.5 truncate">
-                        <Hash className="h-2.5 w-2.5 inline mr-1" />{h.checksum}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-mono text-foreground truncate">{h.filename}</p>
+                        <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{new Date(h.createdAt).toLocaleString()}</span>
+                          <span className="flex items-center gap-1"><Table2 className="h-2.5 w-2.5" />{h.tableCount} tables</span>
+                          <span className="flex items-center gap-1"><HardDrive className="h-2.5 w-2.5" />{h.rowCount.toLocaleString()} rows</span>
+                          <span>{formatBytes(h.sizeBytes)}</span>
+                        </div>
+                        <button
+                          onClick={() => copyChecksum(h.checksum)}
+                          className="text-[9px] font-mono text-muted-foreground/70 mt-0.5 truncate hover:text-primary transition-colors flex items-center gap-1 w-full text-left"
+                          title="Click to copy"
+                        >
+                          <Hash className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{h.checksum}</span>
+                          <CopyIcon className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                        </button>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {h.compressed && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-emerald-500/30 text-emerald-400">GZIP</Badge>}
+                        {h.encrypted && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-500/30 text-amber-400">AES-256</Badge>}
+                      </div>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => redownloadManifest(h)} title="Re-download manifest">
+                          <FileCheck2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingNoteId(h.id); setNoteDraft(h.note || ''); }} title="Edit note">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeHistoryEntry(h.id)} title="Delete">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      {h.compressed && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-emerald-500/30 text-emerald-400">GZIP</Badge>}
-                      {h.encrypted && <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-500/30 text-amber-400">AES-256</Badge>}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeHistoryEntry(h.id)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+                    {editingNoteId === h.id ? (
+                      <div className="flex gap-1.5 pl-12">
+                        <Input
+                          value={noteDraft}
+                          onChange={e => setNoteDraft(e.target.value)}
+                          placeholder="Add a note (e.g. pre-migration snapshot)…"
+                          className="h-7 text-[11px]"
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter') updateNote(h.id, noteDraft); if (e.key === 'Escape') { setEditingNoteId(null); setNoteDraft(''); } }}
+                        />
+                        <Button size="sm" className="h-7 text-[10px]" onClick={() => updateNote(h.id, noteDraft)}>Save</Button>
+                      </div>
+                    ) : h.note ? (
+                      <p className="pl-12 text-[10px] text-muted-foreground italic">"{h.note}"</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
