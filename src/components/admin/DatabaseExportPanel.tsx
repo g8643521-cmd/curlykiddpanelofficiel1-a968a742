@@ -548,15 +548,13 @@ const DatabaseExportPanel = () => {
       }
 
       step(95, 'Writing file…');
-      const blob = new Blob([bytes as BlobPart], { type: mime });
+      // Slice into a fresh ArrayBuffer so Blob never sees a view into a larger buffer.
+      const safeBuf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const blob = new Blob([safeBuf], { type: mime });
       downloadBlob(blob, filename);
-
-      const sidecar = JSON.stringify({
-        filename, checksum_sha256: checksum, raw_bytes: rawSize, stored_bytes: bytes.length,
-        compressed: compress, encrypted: encrypt, created_at: new Date().toISOString(),
-        tables: tablesToExport, rows: selectedRows,
-      }, null, 2);
-      downloadBlob(new Blob([sidecar], { type: 'application/json' }), `${baseName}.manifest.json`);
+      // NOTE: manifest sidecar is NOT auto-downloaded — browsers block consecutive
+      // downloads and users were only receiving the tiny manifest (~1KB) instead of
+      // the actual backup. Manifest can be regenerated from the History tab.
 
       const entry: BackupHistoryEntry = {
         id: crypto.randomUUID(),
