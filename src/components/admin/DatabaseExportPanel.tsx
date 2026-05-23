@@ -875,7 +875,7 @@ const DatabaseExportPanel = () => {
                   <SummaryRow label="Rows" value={selectedRows.toLocaleString()} />
                   <SummaryRow label="Estimated size" value={formatBytes(estimatedSize)} />
                   <SummaryRow label="Format" value={format.toUpperCase()} />
-                  <SummaryRow label="Pipeline" value={[format === 'json' ? 'JSON' : 'CSV', compress && format === 'json' ? 'GZIP' : null, encrypt && format === 'json' ? 'AES-256' : null].filter(Boolean).join(' → ')} />
+                  <SummaryRow label="Pipeline" value={[format.toUpperCase(), compress && format === 'json' ? 'GZIP' : null, encrypt && format === 'json' ? 'AES-256' : null].filter(Boolean).join(' → ')} />
                   <SummaryRow label="Integrity" value="SHA-256 manifest" />
                 </div>
                 <Button
