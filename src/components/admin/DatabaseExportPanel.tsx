@@ -495,6 +495,36 @@ const DatabaseExportPanel = () => {
         setIsExporting(false); setExportProgress(''); setExportPct(0); return;
       }
 
+      if (format === 'html') {
+        step(55, 'Computing SHA-256 checksum…');
+        const jsonStr = JSON.stringify(data);
+        const rawSize = new TextEncoder().encode(jsonStr).length;
+        const checksum = await sha256Hex(jsonStr);
+        step(75, 'Rendering HTML report…');
+        const filteredTables = tablesToExport.filter(t => !t.startsWith('_'));
+        const html = buildHtmlReport(data as Record<string, any>, { checksum, rawBytes: rawSize, tables: filteredTables });
+        const htmlBytes = new TextEncoder().encode(html);
+        step(95, 'Writing file…');
+        const filename = `${baseName}.html`;
+        downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), filename);
+
+        const entry: BackupHistoryEntry = {
+          id: crypto.randomUUID(),
+          filename, createdAt: new Date().toISOString(),
+          tableCount: filteredTables.length, rowCount: selectedRows,
+          sizeBytes: htmlBytes.length, format: 'html', compressed: false, encrypted: false, checksum,
+          tables: filteredTables, rawBytes: rawSize,
+        };
+        const next = [entry, ...history];
+        setHistory(next); saveHistory(next);
+        const nextSchedule = { ...schedule, lastReminderAt: new Date().toISOString() };
+        setSchedule(nextSchedule); saveSchedule(nextSchedule);
+
+        step(100, 'Done');
+        toast.success(`HTML report ready — ${formatBytes(htmlBytes.length)}`);
+        setIsExporting(false); setExportProgress(''); setExportPct(0); return;
+      }
+
       step(50, 'Serializing JSON…');
       const json = JSON.stringify(data, null, 2);
       let bytes: Uint8Array = new TextEncoder().encode(json);
