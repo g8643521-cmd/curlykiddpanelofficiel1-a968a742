@@ -173,6 +173,142 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+function renderCellHtml(v: any): string {
+  if (v === null || v === undefined) return '<span class="null">null</span>';
+  if (typeof v === 'boolean') return `<span class="bool ${v ? 'true' : 'false'}">${v}</span>`;
+  if (typeof v === 'number') return `<span class="num">${v}</span>`;
+  if (typeof v === 'object') return `<pre class="json">${escapeHtml(JSON.stringify(v, null, 2))}</pre>`;
+  const s = String(v);
+  if (/^https?:\/\//.test(s)) return `<a href="${escapeHtml(s)}" target="_blank" rel="noopener">${escapeHtml(s.length > 60 ? s.slice(0, 57) + '…' : s)}</a>`;
+  return escapeHtml(s);
+}
+
+function buildHtmlReport(data: Record<string, any>, meta: { checksum: string; rawBytes: number; tables: string[] }): string {
+  const generated = new Date().toISOString();
+  const totalRows = meta.tables.reduce((n, t) => n + (Array.isArray(data[t]) ? data[t].length : 0), 0);
+
+  const toc = meta.tables.map(t => {
+    const rows = Array.isArray(data[t]) ? data[t].length : 0;
+    return `<li><a href="#tbl-${escapeHtml(t)}"><span class="toc-name">${escapeHtml(t)}</span><span class="toc-count">${rows.toLocaleString()}</span></a></li>`;
+  }).join('');
+
+  const sections = meta.tables.map(t => {
+    const rows: any[] = Array.isArray(data[t]) ? data[t] : [];
+    if (rows.length === 0) {
+      return `<section id="tbl-${escapeHtml(t)}" class="card"><header class="card-h"><h2>${escapeHtml(t)}</h2><span class="pill">0 rows</span></header><div class="empty">No rows</div></section>`;
+    }
+    const cols = Array.from(rows.reduce((s: Set<string>, r) => { Object.keys(r ?? {}).forEach(k => s.add(k)); return s; }, new Set<string>()));
+    const thead = cols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+    const tbody = rows.map(r => `<tr>${cols.map(c => `<td>${renderCellHtml(r[c])}</td>`).join('')}</tr>`).join('');
+    return `<section id="tbl-${escapeHtml(t)}" class="card">
+      <header class="card-h">
+        <h2>${escapeHtml(t)}</h2>
+        <div class="card-meta"><span class="pill">${rows.length.toLocaleString()} rows</span><span class="pill">${cols.length} cols</span></div>
+      </header>
+      <div class="tbl-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>
+    </section>`;
+  }).join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CurlyKidd Database Backup — ${generated.slice(0, 10)}</title>
+<style>
+  :root {
+    --bg: #07100f; --bg-2: #0c1a18; --panel: #0f2422; --border: #1a3a36;
+    --fg: #e6fbf6; --muted: #7da89f; --primary: #1de9c3; --accent: #6ee7d3;
+    --danger: #ef4444; --warn: #f59e0b; --true: #34d399; --false: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: radial-gradient(ellipse at top, #0d2421 0%, var(--bg) 60%); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 32px 24px 80px; }
+  header.hero { display: flex; align-items: center; justify-content: space-between; padding: 28px; border-radius: 20px; background: linear-gradient(135deg, rgba(29,233,195,.12), rgba(29,233,195,.02)); border: 1px solid var(--border); margin-bottom: 28px; box-shadow: 0 20px 60px -30px rgba(29,233,195,.4); }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, var(--primary), #0c8f7a); display: grid; place-items: center; font-weight: 800; color: #04110f; font-size: 22px; box-shadow: 0 10px 30px -10px rgba(29,233,195,.6); }
+  h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .stat { padding: 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
+  .stat .k { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .stat .v { font-size: 22px; font-weight: 700; margin-top: 6px; color: var(--accent); }
+  .layout { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, 1fr); } }
+  nav.toc { position: sticky; top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 14px; max-height: calc(100vh - 32px); overflow: auto; }
+  nav.toc h3 { margin: 0 0 10px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  nav.toc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  nav.toc a { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 8px; text-decoration: none; color: var(--fg); font-size: 12px; transition: background .15s; }
+  nav.toc a:hover { background: rgba(29,233,195,.08); color: var(--accent); }
+  .toc-count { font-size: 10px; color: var(--muted); background: rgba(255,255,255,.04); padding: 2px 7px; border-radius: 10px; }
+  .filter { width: 100%; background: var(--bg-2); border: 1px solid var(--border); color: var(--fg); padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 10px; outline: none; }
+  .filter:focus { border-color: var(--primary); }
+  main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .card-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, rgba(29,233,195,.04), transparent); }
+  .card-h h2 { margin: 0; font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+  .card-meta { display: flex; gap: 6px; }
+  .pill { font-size: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(29,233,195,.1); color: var(--accent); border: 1px solid rgba(29,233,195,.2); }
+  .tbl-wrap { overflow-x: auto; max-height: 600px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { position: sticky; top: 0; background: var(--bg-2); color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: .06em; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid rgba(26,58,54,.5); vertical-align: top; max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+  tbody tr:hover { background: rgba(29,233,195,.03); }
+  tbody tr:last-child td { border-bottom: none; }
+  .null { color: var(--muted); font-style: italic; opacity: .6; }
+  .bool.true { color: var(--true); font-weight: 600; }
+  .bool.false { color: var(--false); font-weight: 600; }
+  .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .json { margin: 0; max-height: 160px; overflow: auto; font-size: 11px; background: rgba(0,0,0,.3); padding: 6px 8px; border-radius: 6px; color: #b6f0e0; }
+  a { color: var(--primary); text-decoration: none; } a:hover { text-decoration: underline; }
+  .empty { padding: 28px; color: var(--muted); text-align: center; font-size: 12px; }
+  footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 11px; }
+  code.chk { font-family: ui-monospace, monospace; background: var(--bg-2); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="brand">
+      <div class="logo">CK</div>
+      <div>
+        <h1>CurlyKidd Database Backup</h1>
+        <div class="sub">Generated ${generated} · Self-contained HTML report</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="sub">SHA-256</div>
+      <code class="chk">${meta.checksum.slice(0, 16)}…</code>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Tables</div><div class="v">${meta.tables.length}</div></div>
+    <div class="stat"><div class="k">Total Rows</div><div class="v">${totalRows.toLocaleString()}</div></div>
+    <div class="stat"><div class="k">Raw Size</div><div class="v">${(meta.rawBytes / 1024).toFixed(1)} KB</div></div>
+    <div class="stat"><div class="k">Generated</div><div class="v" style="font-size:14px">${generated.slice(0, 10)}</div></div>
+  </div>
+
+  <div class="layout">
+    <nav class="toc">
+      <h3>Tables</h3>
+      <input class="filter" placeholder="Filter tables…" oninput="(function(e){var q=e.target.value.toLowerCase();document.querySelectorAll('nav.toc li').forEach(function(li){li.style.display=li.innerText.toLowerCase().includes(q)?'':'none'})})(event)" />
+      <ul>${toc}</ul>
+    </nav>
+    <main>${sections}</main>
+  </div>
+
+  <footer>CurlyKiddPanel · Database Snapshot · ${meta.tables.length} tables · ${totalRows.toLocaleString()} rows</footer>
+</div>
+</body>
+</html>`;
+}
+
+
 // ---------- Component ----------
 const DatabaseExportPanel = () => {
   const { isReady, isAuthenticated } = useAuthReady();
