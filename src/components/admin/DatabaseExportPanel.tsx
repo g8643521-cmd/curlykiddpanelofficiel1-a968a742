@@ -4,7 +4,7 @@ import {
   HardDrive, Table2, Info, RefreshCw, AlertTriangle, TimerOff, Search, Lock, Unlock, FileArchive,
   Hash, History, Eye, Trash2, FileWarning, Sparkles, Check, X, ChevronRight,
   ShieldAlert, Zap, Calendar, FileCheck2, GitCompareArrows, BellRing, Heart, Activity,
-  FileSearch, Pencil, Copy as CopyIcon,
+  FileSearch, Pencil, Copy as CopyIcon, FileCode2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
