@@ -832,8 +832,9 @@ const DatabaseExportPanel = () => {
               {/* Format & options */}
               <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-4">
                 <SectionLabel icon={<FileJson className="h-3 w-3" />}>Output Format</SectionLabel>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <FormatButton active={format === 'json'} onClick={() => setFormat('json')} icon={<FileJson className="h-4 w-4" />} label="JSON" desc="Full backup" />
+                  <FormatButton active={format === 'html'} onClick={() => setFormat('html')} icon={<FileCode2 className="h-4 w-4" />} label="HTML" desc="Pretty report" />
                   <FormatButton active={format === 'csv'} onClick={() => setFormat('csv')} icon={<FileSpreadsheet className="h-4 w-4" />} label="CSV" desc="Per-table files" />
                 </div>
 
