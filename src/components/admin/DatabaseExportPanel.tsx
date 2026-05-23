@@ -549,7 +549,7 @@ const DatabaseExportPanel = () => {
 
       step(95, 'Writing file…');
       // Slice into a fresh ArrayBuffer so Blob never sees a view into a larger buffer.
-      const safeBuf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      const safeBuf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       const blob = new Blob([safeBuf], { type: mime });
       downloadBlob(blob, filename);
       // NOTE: manifest sidecar is NOT auto-downloaded — browsers block consecutive
