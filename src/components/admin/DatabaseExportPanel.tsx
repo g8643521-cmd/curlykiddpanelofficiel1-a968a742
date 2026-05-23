@@ -843,12 +843,12 @@ const DatabaseExportPanel = () => {
                   <ToggleRow
                     icon={<FileArchive className="h-4 w-4 text-emerald-400" />}
                     title="GZIP Compression" desc="~70% smaller. Recommended for large backups."
-                    checked={compress} onCheckedChange={setCompress} disabled={format === 'csv'}
+                    checked={compress} onCheckedChange={setCompress} disabled={format !== 'json'}
                   />
                   <ToggleRow
                     icon={<Lock className="h-4 w-4 text-amber-400" />}
                     title="AES-256-GCM Encryption" desc="Password-protected backup. Sidecar manifest stays clear."
-                    checked={encrypt} onCheckedChange={setEncrypt} disabled={format === 'csv'}
+                    checked={encrypt} onCheckedChange={setEncrypt} disabled={format !== 'json'}
                   />
                   {encrypt && (
                     <div className="space-y-1.5 pl-7">
