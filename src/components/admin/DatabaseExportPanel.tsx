@@ -39,7 +39,7 @@ type BackupHistoryEntry = {
   tableCount: number;
   rowCount: number;
   sizeBytes: number;
-  format: 'json' | 'csv';
+  format: 'json' | 'csv' | 'html';
   compressed: boolean;
   encrypted: boolean;
   checksum: string;
