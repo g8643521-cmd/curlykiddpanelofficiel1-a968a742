@@ -470,8 +470,9 @@ const DatabaseExportPanel = () => {
 
     try {
       const tablesToExport = Array.from(selectedTables);
+      const serverFormat = format === 'html' ? 'json' : format;
       const { data, error } = await supabase.functions.invoke('export-database', {
-        body: { tables: tablesToExport, format },
+        body: { tables: tablesToExport, format: serverFormat },
       });
 
       if (error || (data as any)?.error) {
