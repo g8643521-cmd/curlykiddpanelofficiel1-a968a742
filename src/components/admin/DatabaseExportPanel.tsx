@@ -190,7 +190,7 @@ const DatabaseExportPanel = () => {
   const [filterMode, setFilterMode] = useState<'all' | 'user' | 'system' | 'empty' | 'failing'>('all');
 
   // Export options
-  const [format, setFormat] = useState<'json' | 'csv'>('json');
+  const [format, setFormat] = useState<'json' | 'csv' | 'html'>('json');
   const [compress, setCompress] = useState(true);
   const [encrypt, setEncrypt] = useState(false);
   const [password, setPassword] = useState('');
